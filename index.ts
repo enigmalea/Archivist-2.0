@@ -1,9 +1,15 @@
-const fs = require("node:fs");
-const path = require("node:path");
-const { Client, Events, GatewayIntentBits, Collection } = require("discord.js");
+import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
+
+import fs from "node:fs";
+import path from "node:path";
+
 const { token } = require("./config.json");
 
-const client = new Client({
+class ClientWithCommands extends Client {
+  public commands = new Collection();
+}
+
+const client = new ClientWithCommands({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
@@ -14,7 +20,7 @@ const client = new Client({
 const eventsPath = path.join(__dirname, "events");
 const eventFiles = fs
   .readdirSync(eventsPath)
-  .filter((file: any) => file.endsWith(".js"));
+  .filter((file) => file.endsWith(".js"));
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
@@ -25,8 +31,6 @@ for (const file of eventFiles) {
     client.on(event.name, (...args: any) => event.execute(...args));
   }
 }
-
-client.commands = new Collection();
 
 const commandsPath = path.join(__dirname, "commands");
 const commandFiles = fs
@@ -45,7 +49,7 @@ for (const file of commandFiles) {
   }
 }
 
-client.on(Events.MessageCreate, async (message: any) => {
+client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
   if (message.content.toLowerCase().includes("https://")) {
     await message.channel.send("This is a URL.");

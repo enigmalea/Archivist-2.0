@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
+    "target": "es2016",
     "useDefineForClassFields": true,
     "lib": ["ESNext"],
     "outDir": "dist/",
     "allowJs": true,
     "skipLibCheck": true,
-    "esModuleInterop": false,
+    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "module": "ESNext",
+    "module": "commonjs",
     "moduleResolution": "Node",
     "resolveJsonModule": true,
     "isolatedModules": false
