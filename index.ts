@@ -1,12 +1,25 @@
-import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
+import {
+  BaseInteraction,
+  Client,
+  Collection,
+  Events,
+  GatewayIntentBits,
+} from "discord.js";
 
 import fs from "node:fs";
 import path from "node:path";
 
 const { token } = require("./config.json");
 
-class ClientWithCommands extends Client {
-  public commands = new Collection();
+export class ClientWithCommands extends Client {
+  public commands = new Collection<
+    string,
+    {
+      name: string;
+      once: boolean | undefined;
+      execute: (arg: BaseInteraction | ClientWithCommands) => void;
+    }
+  >();
 }
 
 const client = new ClientWithCommands({
@@ -18,9 +31,10 @@ const client = new ClientWithCommands({
 });
 
 const eventsPath = path.join(__dirname, "events");
-const eventFiles = fs
-  .readdirSync(eventsPath)
-  .filter((file) => file.endsWith(".js"));
+const eventFiles = fs.readdirSync(eventsPath).filter((file) => {
+  console.log("Attempting to load event file:", file);
+  return file.endsWith(".js");
+});
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
@@ -33,9 +47,10 @@ for (const file of eventFiles) {
 }
 
 const commandsPath = path.join(__dirname, "commands");
-const commandFiles = fs
-  .readdirSync(commandsPath)
-  .filter((file: any) => file.endsWith(".js"));
+const commandFiles = fs.readdirSync(commandsPath).filter((file) => {
+  console.log("Attempting to load command file:", file);
+  return file.endsWith(".js");
+});
 
 for (const file of commandFiles) {
   const filePath = path.join(commandsPath, file);
