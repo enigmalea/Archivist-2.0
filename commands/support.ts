@@ -4,15 +4,15 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
-import { Command } from "..";
+import { ClientWithCommands } from "..";
 
 export const data = new SlashCommandBuilder()
   .setName("support")
   .setDescription("Want to support Archivist? Here's how!");
 
-export const execute: Command["execute"] = async (
-  _,
-  interaction: ChatInputCommandInteraction
+export const execute = async (
+  interaction: ChatInputCommandInteraction,
+  client: ClientWithCommands
 ) => {
   const freeOptions = `**✨ [Follow @\\_ArchivistBot\\_ on Twitter](https://twitter.com/_ArchivistBot_)**
 ▸ Make sure to like and retweet **@\\_ArchivistBot\\_'s** tweets.
