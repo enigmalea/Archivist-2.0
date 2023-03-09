@@ -6,9 +6,6 @@ export const data = new SlashCommandBuilder()
   .setName("ping")
   .setDescription("Replies with Pong!");
 
-export const execute: Command["execute"] = async (
-  _,
-  interaction: ChatInputCommandInteraction
-) => {
-  await interaction.reply("Pong! The JS Rewrite has begun!");
+export const execute = async (interaction: ChatInputCommandInteraction) => {
+  await interaction.reply("Pong! The TS Rewrite has begun!");
 };

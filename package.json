@@ -1,6 +1,6 @@
 {
   "name": "Archivist.js",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "main": "dist/index.js",
   "license": "MIT",
   "scripts": {
@@ -10,9 +10,11 @@
     "register": "node dist/deploy-commands.js"
   },
   "dependencies": {
+    "common-tags": "^1.8.2",
     "discord.js": "^14.7.1"
   },
   "devDependencies": {
+    "@types/common-tags": "^1.8.1",
     "@types/node": "^18.11.18",
     "eslint": "^8.31.0",
     "nodemon": "^2.0.21",
