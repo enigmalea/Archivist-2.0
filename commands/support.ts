@@ -4,18 +4,19 @@ import {
     SlashCommandBuilder,
 } from "discord.js";
 
-import { ClientWithCommands } from "..";
+import { ClientWithCommands } from "../bot";
+import { stripIndents } from "common-tags";
 
 export const data = new SlashCommandBuilder()
     .setName("support")
     .setDescription("Want to support Archivist? Here's how!");
 
-export const execute = async (
-  interaction: ChatInputCommandInteraction,
-  client: ClientWithCommands
-) => {
-  const freeOptions = `**✨ [Follow @\\_ArchivistBot\\_ on Twitter](https://twitter.com/_ArchivistBot_)**
-▸ Make sure to like and retweet **@\\_ArchivistBot\\_'s** tweets.
+export const execute = async (interaction: ChatInputCommandInteraction) => {
+
+	// Defines variables for embed.
+    const botName = interaction.client.user.username;
+    const freeOptions = stripIndents`**✨ [Follow @\\_ArchivistBot\\_ on Twitter](https://twitter.com/_ArchivistBot_)**
+	▸ Make sure to like and retweet **@\\_ArchivistBot\\_'s** tweets.
 
     **✨ [Join the Support Server](https://discord.gg/FzhC9bVFva)**
     ▸ Have an idea for a feature or something you'd like to see? Join the Support Server to share it with the dev.
@@ -31,6 +32,7 @@ export const execute = async (
     const paidOptions = `__There are no premium or paid features to use <:logo:848627809647329320> **${botName}**.__ This is not a for profit project. However, if you would like to donate to help offset the cost of hosting or to just say thank you, feel free to visit my ko-fi.
     <:kofi:848631801046892604> **[enigmalea](https://ko-fi.com/enigmalea)**\n`;
 
+	// Creates embed to post.
     const supportEmbed = new EmbedBuilder()
         .setColor(0x2f3136)
         .setTitle(`Support ${botName}`)

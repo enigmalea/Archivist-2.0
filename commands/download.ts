@@ -4,9 +4,9 @@ import {
     SlashCommandBuilder,
     SlashCommandStringOption,
 } from "discord.js";
-import type { ClientWithCommands, Command } from "..";
 
-import { ao3Work } from "../utils/errors";
+import type { ClientWithCommands } from "../bot";
+import { ao3WorkError } from "../utils/errors";
 import { stripIndents } from "common-tags";
 
 export const data = new SlashCommandBuilder()
@@ -41,7 +41,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         workURL?.includes("archiveofourown.org/works/") === false &&
         workURL?.includes("ao3.org/works/") === false
     ) {
-        await interaction.reply(ao3Work); // ! sends error that link not a work link
+        await interaction.reply(ao3WorkError ); // ! sends error that link not a work link
     } else {
 		type fileType = "azw3" | "epub" | "html" | "mobi" | "pdf";
 		let file = interaction.options.getString("filetype")! as fileType;
@@ -60,8 +60,8 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 		const description = stripIndents`*Click the link below to download the **${file}** file you requested.*\n\n
 			${emoji[file]} [**Download**](${dlURL})\n\n☆ DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! ☆`;
 
-        // * Constructs embed to send to Discord.
         // TODO: add Title of work as embed title and link to work.
+        // * Constructs embed to send to Discord.
         const downloadEmbed = new EmbedBuilder()
             .setColor(0x2f3136)
             .setAuthor({

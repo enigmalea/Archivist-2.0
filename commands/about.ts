@@ -4,23 +4,21 @@ import {
     SlashCommandBuilder,
 } from "discord.js";
 
-import type { ClientWithCommands } from "..";
-
+import type { ClientWithCommands } from "../bot";
 import { version as botVersion } from "../package.json";
 
 export const data = new SlashCommandBuilder()
     .setName("about")
     .setDescription("Provides information about Archivist");
 
-export const execute = async (interaction: ChatInputCommandInteraction) => {
-  const botName = interaction.client.user?.username;
-  console.log(botName);
-  // const serverCount = client.guilds.cache.size;
-  // version = self.bot.VERSION
-  // const launchDate = "16 Mar 2021";
-  // shard = ctx.guild.shard_id
+// TODO: update server count for shards, add shard ID info, optional: add member count of shards.
 
-    // Calculates bot uptime
+export const execute = async (interaction: ChatInputCommandInteraction) => {
+	const botName = interaction.client.user?.username;
+	const serverCount = interaction.client.guilds.cache.size;
+	const launchDate = "16 Mar 2021";
+
+    // Calculates bot uptime.
     let totalSeconds = interaction.client.uptime! / 1000;
     let days = Math.floor(totalSeconds / 86400);
     totalSeconds %= 86400;
