@@ -6,6 +6,9 @@ import {
 } from "discord.js";
 import type { ClientWithCommands, Command } from "..";
 
+import { ao3Work } from "../utils/errors";
+import { stripIndents } from "common-tags";
+
 export const data = new SlashCommandBuilder()
     .setName("download")
     .setDescription(
@@ -32,6 +35,46 @@ export const data = new SlashCommandBuilder()
     );
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
-	// TODO: write code for command. Should check if URL is for an AO3 work. If not, send ephemeral message. Be sure to declare custom icons as an object. structure embed.
-    await interaction.reply("DL request received.");
+    const workURL = interaction.options.getString("url");
+
+    if (
+        workURL?.includes("archiveofourown.org/works/") === false &&
+        workURL?.includes("ao3.org/works/") === false
+    ) {
+        await interaction.reply(ao3Work); // ! sends error that link not a work link
+    } else {
+		type fileType = "azw3" | "epub" | "html" | "mobi" | "pdf";
+		let file = interaction.options.getString("filetype")! as fileType;
+
+		const emoji = {	
+		"azw3": "<:azw3:848005536283885579>",
+		"epub": "<:epub:848005536241680434>",
+		"html": "<:html:848005536347455498>",
+		"mobi": "<:mobi:848005536493600768>",
+		"pdf": "<:pdf:848005536552976444>",
+		}
+
+		let dlURL = "http://google.com"; // TODO: replace with logic to determine download URL. need to import AO3.js to determine the work title.
+
+		// TODO: add author name and link to description
+		const description = stripIndents`*Click the link below to download the **${file}** file you requested.*\n\n
+			${emoji[file]} [**Download**](${dlURL})\n\n☆ DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! ☆`;
+
+        // * Constructs embed to send to Discord.
+        // TODO: add Title of work as embed title and link to work.
+        const downloadEmbed = new EmbedBuilder()
+            .setColor(0x2f3136)
+            .setAuthor({
+                name: "Archive of Our Own",
+                iconURL: "https://i.imgur.com/Ml4X1T6.png",
+                url: "https://archiveofourown.org",
+            })
+            .setDescription(description)
+            .setTimestamp()
+            .setFooter({
+                text: `bot not affiliated with OTW or AO3`,
+            });
+
+        await interaction.reply({ embeds: [downloadEmbed] });
+    }
 };
