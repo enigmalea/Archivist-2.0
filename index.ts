@@ -11,14 +11,15 @@ import path from "node:path";
 
 const { token } = require("./config.json"); // TODO: update to .env
 
-export type Command = {
-    name: string;
-    once: boolean | undefined;
-    execute: (client: ClientWithCommands, ...args: any[]) => void;
-};
-
 export class ClientWithCommands extends Client {
-    public commands = new Collection<string, Command>();
+  public commands = new Collection<
+    string,
+    {
+      name: string;
+      once: boolean | undefined;
+      execute: (arg: BaseInteraction | ClientWithCommands) => void;
+    }
+  >();
 }
 
 const client = new ClientWithCommands({
@@ -36,13 +37,13 @@ const eventFiles = fs.readdirSync(eventsPath).filter((file) => {
 });
 
 for (const file of eventFiles) {
-    const filePath = path.join(eventsPath, file);
-    const event = require(filePath);
-    if (event.once) {
-        client.once(event.name, (...args: any) => event.execute(...args));
-    } else {
-        client.on(event.name, (...args: any) => event.execute(...args));
-    }
+  const filePath = path.join(eventsPath, file);
+  const event = require(filePath);
+  if (event.once) {
+    client.once(event.name, (...args: any) => event.execute(...args));
+  } else {
+    client.on(event.name, (...args: any) => event.execute(...args));
+  }
 }
 
 const commandsPath = path.join(__dirname, "commands");

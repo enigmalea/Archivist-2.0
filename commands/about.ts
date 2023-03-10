@@ -3,7 +3,8 @@ import {
     EmbedBuilder,
     SlashCommandBuilder,
 } from "discord.js";
-import type { ClientWithCommands, Command } from "..";
+
+import type { ClientWithCommands } from "..";
 
 import { version as botVersion } from "../package.json";
 
@@ -12,10 +13,12 @@ export const data = new SlashCommandBuilder()
     .setDescription("Provides information about Archivist");
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
-    const botName = interaction.client.user?.username;
-    const serverCount = interaction.client.guilds.cache.size;
-    const launchDate = "16 Mar 2021";
-    // shard = ctx.guild.shard_id
+  const botName = interaction.client.user?.username;
+  console.log(botName);
+  // const serverCount = client.guilds.cache.size;
+  // version = self.bot.VERSION
+  // const launchDate = "16 Mar 2021";
+  // shard = ctx.guild.shard_id
 
     // Calculates bot uptime
     let totalSeconds = interaction.client.uptime! / 1000;

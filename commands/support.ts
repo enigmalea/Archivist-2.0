@@ -4,18 +4,18 @@ import {
     SlashCommandBuilder,
 } from "discord.js";
 
-import { Command } from "..";
-import { stripIndents } from "common-tags";
+import { ClientWithCommands } from "..";
 
 export const data = new SlashCommandBuilder()
     .setName("support")
     .setDescription("Want to support Archivist? Here's how!");
 
-export const execute = async (interaction: ChatInputCommandInteraction) => {
-    const client = interaction.client;
-    const botName = client.user?.username;
-    const freeOptions = stripIndents`**✨ [Follow @\\_ArchivistBot\\_ on Twitter](https://twitter.com/_ArchivistBot_)**
-    ▸ Make sure to like and retweet **@\\_ArchivistBot\\_'s** tweets.
+export const execute = async (
+  interaction: ChatInputCommandInteraction,
+  client: ClientWithCommands
+) => {
+  const freeOptions = `**✨ [Follow @\\_ArchivistBot\\_ on Twitter](https://twitter.com/_ArchivistBot_)**
+▸ Make sure to like and retweet **@\\_ArchivistBot\\_'s** tweets.
 
     **✨ [Join the Support Server](https://discord.gg/FzhC9bVFva)**
     ▸ Have an idea for a feature or something you'd like to see? Join the Support Server to share it with the dev.
