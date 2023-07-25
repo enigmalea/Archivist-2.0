@@ -1,8 +1,13 @@
-import type { ClientWithCommands } from "..";
-import { Events } from "discord.js";
+import { ActivityType, Events } from "discord.js";
+
+import type { ClientWithCommands } from "../bot";
 
 export const name = Events.ClientReady;
 export const once = true;
 export const execute = (client: ClientWithCommands) => {
-  console.log(`Ready! Logged in as ${client.user?.tag}`);
+	client.user?.setPresence({
+		activities: [{ name: `archivistbot.com`, type: ActivityType.Watching }],
+		status: 'online',
+	  });
+    console.log(`Ready! Logged in as ${client.user?.tag}`);
 };
