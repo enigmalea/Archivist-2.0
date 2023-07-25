@@ -12,7 +12,7 @@ export let ao3WorkError = {
 // Constructs and exports the error message used with the user must be authenticated to see a work.
 const authMessage = oneLine`I'm sorry. This fic is available to Registered
 	Users of AO3 only. In order to protect the author's privacy, I will not display
-	an embed. Please go to AO3 directly while logged in to view this fic!`;
+	an embed. Please go to AO3 directly while logged in to interact with this fic!`;
 export const authError = {
   content: authMessage,
   ephemeral: true,
