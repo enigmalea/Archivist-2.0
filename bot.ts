@@ -68,12 +68,15 @@ for (const file of commandFiles) {
     }
 }
 
-// TODO: Update to identify and respond to only AO3 links.
+// TODO: find out from ms. boba how to handle the code in this section.
+
 // Listens to events.
 client.on(Events.MessageCreate, async (message) => {
     if (message.author.bot) return;
-    if (message.content.toLowerCase().includes("https://")) {
-        await message.channel.send("This is a URL.");
+
+		let ao3Links = /(http|https):\/\/(www.|)(archiveofourown.org|ao3.org)/g;
+    if (ao3Links.test(message.content.toLowerCase()) === true) {
+        await message.channel.send("This is a AO3 URL.");
     }
 });
 

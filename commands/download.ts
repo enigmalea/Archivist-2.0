@@ -41,7 +41,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         workURL?.includes("archiveofourown.org/works/") === false &&
         workURL?.includes("ao3.org/works/") === false
     ) {
-        await interaction.reply(ao3WorkError ); // ! sends error that link not a work link
+        await interaction.reply(ao3WorkError); // ! sends error that link not a work link
     } else {
 		type fileType = "azw3" | "epub" | "html" | "mobi" | "pdf";
 		let file = interaction.options.getString("filetype")! as fileType;
