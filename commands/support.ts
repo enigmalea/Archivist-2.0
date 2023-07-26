@@ -3,10 +3,9 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
+import { oneLine, stripIndents } from "common-tags";
 
-import { ClientWithCommands } from "../bot";
-import { stripIndents } from "common-tags";
-
+// Creates support command.
 export const data = new SlashCommandBuilder()
   .setName("support")
   .setDescription("Want to support Archivist? Here's how!");
@@ -25,26 +24,32 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     ▸ Post about <:logo:848627809647329320> **${botName}** on tumblr, twitter, or other fandom spaces.
     ▸ Ask mods to add <:logo:848627809647329320> **${botName}** to Discord servers you're in.`;
 
-  const paidOptions = `__There are no premium or paid features to use <:logo:848627809647329320> **${botName}**.__ This is not a for profit project. However, if you would like to donate to help offset the cost of hosting or to just say thank you, feel free to visit my ko-fi.
-    <:kofi:848631801046892604> **[enigmalea](https://ko-fi.com/enigmalea)**\n`;
+  const paidOptions = oneLine`__There are no premium or paid features to use 
+		<:logo:848627809647329320> **${botName}**.__ This is not a for profit project.
+		However, if you would like to donate to help offset the cost of hosting or 
+		to just say thank you, feel free to visit my ko-fi.`;
 
-  // Creates embed to post.
+	const kofi = "\n<:kofi:848631801046892604> **[enigmalea](https://ko-fi.com/enigmalea)**"
+
+  // * Constructs embed to send to Discord.
   const supportEmbed = new EmbedBuilder()
     .setColor(0x2f3136)
     .setTitle(`Support ${botName}`)
     .setDescription(
-      `Thank you for wanting to support ${botName}. Below you'll find some ideas for what you can do to help ${botName} grow!`
+      oneLine`Thank you for wanting to support ${botName}. Below you'll find some
+			ideas for what you can do to help ${botName} grow!`
     )
     .addFields({
       name: "💡 HOW TO SUPPORT FOR FREE 💡",
       value: `${freeOptions}`,
     })
-    .addFields({ name: "PAID SUPPORT", value: `${paidOptions}` })
+    .addFields({ name: "PAID SUPPORT", value: `${paidOptions}${kofi}` })
     .setTimestamp()
     .setFooter({
       text: `Thank you for using ${botName}!`,
       iconURL: "https://www.archivistbot.com/img/logo.png",
     });
 
+  // Sends embed to Discord.
   await interaction.reply({ embeds: [supportEmbed] });
 };
