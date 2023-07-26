@@ -4,7 +4,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { ao3WorkError, authError } from "../utils/errors";
-import { oneLine, oneLineCommaListsAnd, stripIndents } from "common-tags";
+import { oneLine, stripIndents } from "common-tags";
 
 import { getWork } from "@bobaboard/ao3.js";
 import { getWorkDetailsFromUrl } from "@bobaboard/ao3.js/urls";
@@ -47,15 +47,39 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   } else if (work.locked) {
     await interaction.reply(authError); // ! sends error if work is locked.
   } else {
-		let title = work.title;
+    let title = work.title;
 
-		//TODO: update authors to be links and to support more than one author.
-		let author;
-		if (work.authors !== "Anonymous") {
-			author = work.authors[0].username;
-		} else {
-			author = "Anonymous";
-		}
+    let allAuthors;
+    switch (work.authors) {
+      case "Anonymous":
+        allAuthors = "Anonymous";
+        break;
+
+      default:
+        let authorsArray = [];
+        for (let i in work.authors) {
+          let author;
+          let display;
+          let url;
+          switch (work.authors[i].pseud) {
+            case work.authors[i].username:
+              display = work.authors[i].username;
+              url = `https://ao3.org/users/${encodeURI(display)}`;
+              break;
+            default:
+              display = work.authors[i].pseud;
+              let username = work.authors[i].username;
+              url = `https://ao3.org/users/${encodeURI(
+                username
+              )}/pseuds/${encodeURI(display)}`;
+              break;
+          }
+          author = `[${display}](${url})`;
+          authorsArray.push(author);
+        }
+        allAuthors = authorsArray.join(", ");
+        break;
+    }
 
     type fileType = "azw3" | "epub" | "html" | "mobi" | "pdf";
     let file = interaction.options.getString("filetype")! as fileType;
@@ -72,7 +96,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       title.replaceAll(".", "")
     )}.${file}`;
 
-    const description = stripIndents`by ${author}
+    const description = stripIndents`by ${allAuthors}
 		
 		*Click the link below to download the **${file}** file you requested.*
 
