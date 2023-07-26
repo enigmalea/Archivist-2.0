@@ -64,20 +64,29 @@ for (const file of commandFiles) {
     client.commands.set(command.data.name, command);
   } else {
     console.log(
-      '[WARNING] The command at $(filePath) is missing a required "data" or "execute" property.'
+      `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
     );
   }
 }
 
-// Listens to events.
+// Listens to message.
 client.on(Events.MessageCreate, async (message) => {
+	// Tells bot to ignore messages from other bots.
   if (message.author.bot) return;
 
+	// Regex used to identify if AO3 links are in the message.
   let ao3Links =
     /(http|https):\/\/(www.|)(archiveofourown.org|ao3.org)\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+/g;
+	
+	// Identifies if AO3 links are in message. 
   if (ao3Links.test(message.content) === true) {
+		/*
+		Creates an Array of AO3 links in the message and removes symbol used for
+		suppressing embeds from end of AO3 links.
+		*/
     let urls = message.content.replaceAll(">", "").match(ao3Links)!;
 
+		// * Identifies what type of AO3 links are in message and responds.
     let responses = [];
     for (let i in urls) {
 			if (urls[i].includes("/works/")) {
@@ -94,6 +103,7 @@ client.on(Events.MessageCreate, async (message) => {
 
 		let finalResponse = responses.join(" ")
 
+		// Sends all responses above to Discord.
     await message.channel.send(finalResponse);
   }
 });

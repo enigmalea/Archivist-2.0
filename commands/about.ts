@@ -9,10 +9,12 @@ import type { ClientWithCommands } from "../bot";
 import { version as botVersion } from "../package.json";
 
 export const data = new SlashCommandBuilder()
+// Creates the about command.
   .setName("about")
   .setDescription("Provides information about Archivist");
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
+	// Sets variables for the bot's nickname in the server and the launch date.
   const botName = interaction.client.user?.username;
   const launchDate = "16 Mar 2021";
 
@@ -61,16 +63,18 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 		❔ [Support Server](${serverURL})
 		🔒 [Privacy Policy](${privacyPolicy})`;
 
+	//Constructs Stats Text.
   const stats = stripIndents`**Servers:** ${serverCount}
 		**Total Users:** ${totalUsers}
 		**Shard ID:** ${shardID}
 		**Launched:** ${launchDate}`;
 
+	//Constructs required Discord disclosure.
   const disclosure = oneLine`*${botName} does not store any user messages.
 		For information on what information the bot stores and how it uses the
 		information please review the privacy policy at the link above.*`;
 
-  // Constructs embed to send to Discord.
+  // * Constructs embed to send to Discord.
   const aboutEmbed = new EmbedBuilder()
     .setColor(0x2f3136)
     .setTitle(`About ${botName}`)
@@ -97,5 +101,6 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       iconURL: "https://www.archivistbot.com/img/logo.png",
     });
 
+	// Sends embed to Discord.
   await interaction.reply({ embeds: [aboutEmbed] });
 };
