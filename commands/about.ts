@@ -12,8 +12,6 @@ export const data = new SlashCommandBuilder()
   .setName("about")
   .setDescription("Provides information about Archivist");
 
-// TODO: optional: add member count of shards.
-
 export const execute = async (interaction: ChatInputCommandInteraction) => {
   const botName = interaction.client.user?.username;
   const launchDate = "16 Mar 2021";
