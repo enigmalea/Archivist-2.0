@@ -17,7 +17,7 @@ export const data = new SlashCommandBuilder()
   // Creates the download command and sets the options
   .setName("download")
   .setDescription(
-    "Provides a link so you can a fic with a specific format from AO3."
+    "Provides a link so you can download a fic with a specific format from AO3."
   )
   // Adds a required option for the file type.
   .addStringOption((option) =>
@@ -72,24 +72,19 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 
         default:
           let authorsArray = [];
+          let display;
+          let username;
+          let url;
+
           for (let i in work.authors) {
-            let author;
-            let display;
-            let url;
-            switch (work.authors[i].pseud) {
-              case work.authors[i].username:
-                display = work.authors[i].username;
-                url = getUserProfileUrl({ username: display });
-                break;
-              default:
-                display = work.authors[i].pseud;
-                let username = work.authors[i].username;
-                url = getUserProfileUrl({ username: username });
-                break;
-            }
-            author = `[${display}](${url})`;
-            authorsArray.push(author);
+            display = work.authors[i].pseud;
+            username = work.authors[i].username;
+            url = getUserProfileUrl({ username: username });
           }
+
+          let author = `[${display}](${url})`;
+          authorsArray.push(author);
+
           allAuthors = authorsArray.join(", ");
           break;
       }
