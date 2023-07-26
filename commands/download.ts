@@ -2,14 +2,12 @@ import {
   ChatInputCommandInteraction,
   EmbedBuilder,
   SlashCommandBuilder,
-  SlashCommandStringOption,
 } from "discord.js";
 import { ao3WorkError, authError } from "../utils/errors";
+import { oneLine, oneLineCommaListsAnd, stripIndents } from "common-tags";
 
-import type { ClientWithCommands } from "../bot";
 import { getWork } from "@bobaboard/ao3.js";
-import { getWorkDetailsFromUrl } from "@bobaboard/ao3.js/dist/urls";
-import { stripIndents } from "common-tags";
+import { getWorkDetailsFromUrl } from "@bobaboard/ao3.js/urls";
 
 export const data = new SlashCommandBuilder()
   .setName("download")
@@ -45,8 +43,20 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     workURL?.includes("archiveofourown.org/works/") === false &&
     workURL?.includes("ao3.org/works/") === false
   ) {
-    await interaction.reply(ao3WorkError); // ! sends error that link not a work link
+    await interaction.reply(ao3WorkError); // ! sends error that link not a work link.
+  } else if (work.locked) {
+    await interaction.reply(authError); // ! sends error if work is locked.
   } else {
+		let title = work.title;
+
+		//TODO: update authors to be links and to support more than one author.
+		let author;
+		if (work.authors !== "Anonymous") {
+			author = work.authors[0].username;
+		} else {
+			author = "Anonymous";
+		}
+
     type fileType = "azw3" | "epub" | "html" | "mobi" | "pdf";
     let file = interaction.options.getString("filetype")! as fileType;
 
@@ -58,22 +68,22 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       pdf: "<:pdf:848005536552976444>",
     };
 
-    // Gets the work's title.
-    if (!work.locked) {
-      var title = encodeURI(work.title);
-    } else {
-      await interaction.reply(authError);
-    }
+    let download = oneLine`https://ao3.org/downloads/${workId}/${encodeURI(
+      title.replaceAll(".", "")
+    )}.${file}`;
 
-		let dlURL = `https://ao3.org/downloads/${workId}/`
+    const description = stripIndents`by ${author}
+		
+		*Click the link below to download the **${file}** file you requested.*
 
-    // TODO: add author name and link to description
-    const description = stripIndents`*Click the link below to download the **${file}** file you requested.*\n\n
-			${emoji[file]} [**Download**](${dlURL})\n\n☆ DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! ☆`;
+		${emoji[file]} [**Download**](${download})
+		
+		☆ DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! ☆`;
 
-    // TODO: add Title of work as embed title and link to work.
     // * Constructs embed to send to Discord.
     const downloadEmbed = new EmbedBuilder()
+      .setTitle(title)
+      .setURL(workURL)
       .setColor(0x2f3136)
       .setAuthor({
         name: "Archive of Our Own",
