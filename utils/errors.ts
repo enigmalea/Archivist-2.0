@@ -4,7 +4,7 @@ import { oneLine } from "common-tags";
 const ao3WorkMessage = oneLine`That does not appear to be a link to an AO3 work.
 	Please make sure you are linking to a work and not a series, author, collection,
 	or using a non-AO3 link.`;
-export let ao3WorkError = {
+export const ao3WorkError = {
   content: ao3WorkMessage,
   ephemeral: true,
 };

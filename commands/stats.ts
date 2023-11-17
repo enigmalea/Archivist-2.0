@@ -3,6 +3,14 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
+import {
+  allAuthors,
+  chapterDisplay,
+  embedColor,
+  lastUpdated,
+  ratingIcon,
+  workStatus,
+} from "../utils/works";
 import { ao3WorkError, authError } from "../utils/errors";
 import {
   getUserProfileUrl,
@@ -35,8 +43,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 
   if (
     // ! Tests if the url provided is an ao3 work URL and if not, produces an error message.
-    workURL?.includes("archiveofourown.org/works/") === false &&
-    workURL?.includes("ao3.org/works/") === false
+    workURL?.includes("/works/") === false
   ) {
     await interaction.reply(ao3WorkError);
   } else {
@@ -58,89 +65,15 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       let comments = work.stats.comments.toString();
       let category = work.category!.join(", ");
 
-      let chapters;
-      switch (work.chapters.total) {
-        case null:
-          chapters = `${work.chapters.published}/?`;
-          break;
-        default:
-          chapters = `${work.chapters.published}/${work.chapters.total}`;
-          break;
-      }
-
-      let updatedDate;
-      switch (work.updatedAt) {
-        case null:
-          updatedDate = `N/A`;
-          break;
-        default:
-          updatedDate = dayjs(work.updatedAt).format("ll");
-          break;
-      }
-
-      let status;
-      switch (work.complete) {
-        case true:
-          status = "Complete";
-          break;
-        case false:
-          status = "Work in Progress";
-          break;
-      }
-
-      let rating!: string;
-      let color!: number;
-      switch (work.rating) {
-        case "Not Rated":
-          rating = "<:notrated:866825856236519426>";
-          color = 0xffffff;
-          break;
-        case "General Audiences":
-          rating = "<:general:866823809180631040>";
-          color = 0x77a50e;
-          break;
-        case "Teen And Up Audiences":
-          rating = "<:teen:866823893015330826>";
-          color = 0xe8d506;
-          break;
-        case "Mature":
-          rating = "<:mature:866823956684996628>";
-          color = 0xde7e28;
-          break;
-        case "Explicit":
-          rating = "<:explicit:866824069050269736>";
-          color = 0x9c0000;
-          break;
-      }
-
-      // Creates the author links for the work.
-      let allAuthors;
-      switch (work.authors) {
-        case "Anonymous":
-          allAuthors = "Anonymous";
-          break;
-
-        default:
-          let authorsArray = [];
-          let display;
-          let username;
-          let url;
-					
-          for (let i in work.authors) {
-            display = work.authors[i].pseud;
-            username = work.authors[i].username;
-            url = getUserProfileUrl({ username: username });
-          }
-
-          let author = `[${display}](${url})`;
-          authorsArray.push(author);
-
-          allAuthors = authorsArray.join(", ");
-          break;
-      }
+      let chapters = await chapterDisplay(workURL);
+      let updatedDate = await lastUpdated(workURL);
+      let status = await workStatus(workURL);
+      let rating = await ratingIcon(workURL);
+      let color = await embedColor(workURL);
+      let creators = await allAuthors(workURL);
 
       // TODO: add series and collections to description.
-      let description = `by ${allAuthors}`;
+      let description = `by ${creators}`;
 
       // * Constructs embed to send to Discord.
       const statsEmbed = new EmbedBuilder()
@@ -180,7 +113,6 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 
       // * Sends reply to Discord.
       await interaction.reply({ embeds: [statsEmbed] });
-			console.log(work.words)
     }
   }
 };
