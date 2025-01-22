@@ -65,8 +65,8 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 
       // Creates the author links for the work.
       let allAuthors;
-      switch (work.authors) {
-        case "Anonymous":
+      switch (work.authors[0].anonymous) {
+        case true:
           allAuthors = "Anonymous";
           break;
 

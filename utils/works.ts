@@ -3,40 +3,48 @@ import {
   getWorkDetailsFromUrl,
 } from "@bobaboard/ao3.js/urls";
 
-import { ColorResolvable } from "discord.js";
 import dayjs from "dayjs";
 import { getWork } from "@bobaboard/ao3.js";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 
 // Creates the author links for the work.
 export const allAuthors = async (workURL: string) => {
+  // Defines the work variable from the url the user input.
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
   const work = await getWork({ workId: workId });
 
   let workAuthors;
+  // Verifies if the work is locked to AO3 users. If so, it returns nothing.
   if (work.locked) {
     return "";
   } else {
-    switch (work.authors) {
-      case "Anonymous":
-        workAuthors = "Anonymous";
-        break;
+    // If the work is not locked, begins to construct the author links.
+		let allAuthors;
+		switch (work.authors[0].anonymous) {
+			case true:
+				allAuthors = "Anonymous";
+				break;
 
+      // Default for the switch case assumes authors are not anonymous.
       default:
+        // Constructs variables which are accessible outside of the loop.
         let authorsArray = [];
         let display;
         let username;
         let url;
 
+        // For each author in the array, we define their display name (pseud), username (actual AO3 username), and their url.
         for (let i in work.authors) {
           display = work.authors[i].pseud;
           username = work.authors[i].username;
           url = getUserProfileUrl({ username: username });
         }
 
+        // Construct a new array consisting of a markdown formatted masked link of their display name and url.
         let author = `[${display}](${url})`;
         authorsArray.push(author);
 
+        // Join the array of markdown links with commas to create a string for display.
         workAuthors = authorsArray.join(", ");
         break;
     }
@@ -112,29 +120,29 @@ export const ratingIcon = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
   const work = await getWork({ workId: workId });
 
-	let ratingImage!: string;
+  let ratingImage!: string;
   if (work.locked) {
     return "";
   } else {
     switch (work.rating) {
       case "Not Rated":
-          ratingImage="<:notrated:866825856236519426>";
+        ratingImage = "<:notrated:866825856236519426>";
         break;
 
       case "General Audiences":
-          ratingImage="<:general:866823809180631040>";
+        ratingImage = "<:general:866823809180631040>";
         break;
 
       case "Teen And Up Audiences":
-          ratingImage="<:teen:866823893015330826>";
+        ratingImage = "<:teen:866823893015330826>";
         break;
 
       case "Mature":
-          ratingImage="<:mature:866823956684996628>";
+        ratingImage = "<:mature:866823956684996628>";
         break;
 
       case "Explicit":
-          ratingImage="<:explicit:866824069050269736>";
+        ratingImage = "<:explicit:866824069050269736>";
         break;
     }
     return ratingImage;
@@ -146,31 +154,73 @@ export const embedColor = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
   const work = await getWork({ workId: workId });
 
-	let color!: any;
+  let color!: any;
   if (work.locked) {
     return "";
   } else {
     switch (work.rating) {
       case "Not Rated":
-          color=0xffffff;
+        color = 0xffffff;
         break;
 
       case "General Audiences":
-          color=0x77a50e;
+        color = 0x77a50e;
         break;
 
       case "Teen And Up Audiences":
-          color=0xe8d506;
+        color = 0xe8d506;
         break;
 
       case "Mature":
-          color=0xde7e28;
+        color = 0xde7e28;
         break;
 
       case "Explicit":
-          color=0x9c0000;
+        color = 0x9c0000;
         break;
     }
     return color;
   }
+};
+
+// Formats the category for a work-related embed.
+export const workCategory = async (workURL: string) => {
+  const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
+  const work = await getWork({ workId: workId });
+
+  let allCategories;
+  if (work.locked) {
+    return "";
+  } else {
+    switch (work.category) {
+      case null:
+        allCategories = `N/A`;
+        break;
+      default:
+        allCategories = work.category.join(", ");
+        break;
+    }
+  }
+  return allCategories;
+};
+
+// Formats the summary for a work-related embed.
+export const workSummary = async (workURL: string) => {
+  const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
+  const work = await getWork({ workId: workId });
+
+  let formattedSummary;
+  if (work.locked) {
+    return "";
+  } else {
+    switch (work.category) {
+      case null:
+        formattedSummary = `N/A`;
+        break;
+      default:
+        formattedSummary = work.summary!;
+        break;
+    }
+  }
+  return formattedSummary;
 };
