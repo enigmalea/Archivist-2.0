@@ -11,6 +11,7 @@ import {
 import fs from "node:fs";
 import { oneLineCommaListsAnd } from "common-tags";
 import path from "node:path";
+import { worksEmbed } from "./utils/worksembed"
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {
@@ -71,40 +72,40 @@ for (const file of commandFiles) {
 
 // Listens to message.
 client.on(Events.MessageCreate, async (message) => {
-	// Tells bot to ignore messages from other bots.
+  // Tells bot to ignore messages from other bots.
   if (message.author.bot) return;
 
-	// Regex used to identify if AO3 links are in the message.
+  // Regex used to identify if AO3 links are in the message.
   let ao3Links =
     /(http|https):\/\/(www.|)(archiveofourown.org|ao3.org)\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+/g;
-	
-	// Identifies if AO3 links are in message. 
+
+  // Identifies if AO3 links are in message.
   if (ao3Links.test(message.content) === true) {
-		/*
+    /*
 		Creates an Array of AO3 links in the message and removes symbol used for
 		suppressing embeds from end of AO3 links.
 		*/
     let urls = message.content.replaceAll(">", "").match(ao3Links)!;
 
-		// * Identifies what type of AO3 links are in message and responds.
+    // * Identifies what type of AO3 links are in message and responds.
     let responses = [];
     for (let i in urls) {
-			if (urls[i].includes("/works/")) {
-				let urlResponse = `${urls[i]} is a work link.`;
-				responses.push(urlResponse);
-			} else if (urls[i].includes("/users/")) {
-				let urlResponse = `${urls[i]} is a user link.`;
-				responses.push(urlResponse);
-			} else if (urls[i].includes("/series/")) {
-				let urlResponse = `${urls[i]} is a series link.`;
-				responses.push(urlResponse);
-			}
+      if (urls[i].includes("/works/")) {
+				let urlResponse = await worksEmbed(urls[i]);
+				await message.channel.send({embeds: [urlResponse!] });
+      } else if (urls[i].includes("/users/")) {
+        let urlResponse = `${urls[i]} is a user link.`;
+        responses.push(urlResponse);
+      } else if (urls[i].includes("/series/")) {
+        let urlResponse = `${urls[i]} is a series link.`;
+        responses.push(urlResponse);
+      }
     }
 
-		let finalResponse = responses.join(" ")
+    let finalResponse = responses.join(" ");
 
-		// Sends all responses above to Discord.
-    await message.channel.send(finalResponse);
+    // Sends all responses above to Discord.
+    await message.channel.send(finalResponse );
   }
 });
 
