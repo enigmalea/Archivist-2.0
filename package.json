@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+		"test": "npm run build && npm run start",
     "dev": "tsc -w & nodemon dist/index.js",
     "register": "node dist/deploy-commands.js",
     "update": "npm install @bobaboard/ao3.js@latest common-tags@latest dayjs@latest discord.js@latest dotenv@latest @types/common-tags@latest @types/node@latest eslint@latest typescript@latest"

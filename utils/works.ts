@@ -16,33 +16,28 @@ export const allAuthors = async (workURL: string) => {
   let workAuthors;
   // Verifies if the work is locked to AO3 users. If so, it returns nothing.
   if (work.locked) {
-    return "";
+    return;
   } else {
     // If the work is not locked, begins to construct the author links.
-		let allAuthors;
-		switch (work.authors[0].anonymous) {
-			case true:
-				allAuthors = "Anonymous";
-				break;
+    switch (work.authors[0].anonymous) {
+      case true:
+        workAuthors = "Anonymous";
+        break;
 
       // Default for the switch case assumes authors are not anonymous.
       default:
         // Constructs variables which are accessible outside of the loop.
         let authorsArray = [];
-        let display;
-        let username;
-        let url;
-
         // For each author in the array, we define their display name (pseud), username (actual AO3 username), and their url.
         for (let i in work.authors) {
-          display = work.authors[i].pseud;
-          username = work.authors[i].username;
-          url = getUserProfileUrl({ username: username });
-        }
+          const display = work.authors[i].pseud;
+          const username = work.authors[i].username;
+          const url = getUserProfileUrl({ username: username });
 
-        // Construct a new array consisting of a markdown formatted masked link of their display name and url.
-        let author = `[${display}](${url})`;
-        authorsArray.push(author);
+          // Construct a new array consisting of a markdown formatted masked link of their display name and url.
+          const author = `[${display}](${url})`;
+          authorsArray.push(author);
+        }
 
         // Join the array of markdown links with commas to create a string for display.
         workAuthors = authorsArray.join(", ");
@@ -122,7 +117,7 @@ export const ratingIcon = async (workURL: string) => {
 
   let ratingImage!: string;
   if (work.locked) {
-    return "";
+    return;
   } else {
     switch (work.rating) {
       case "Not Rated":
@@ -204,6 +199,35 @@ export const workCategory = async (workURL: string) => {
   return allCategories;
 };
 
+export const workSeries = async (workUrl: string) => {
+  const workId = getWorkDetailsFromUrl({ url: workUrl }).workId;
+  const work = await getWork({ workId: workId });
+
+  let formattedSeries;
+  if (work.locked) {
+    return;
+  } else {
+    switch (work.series.length) {
+      case 0:
+        formattedSeries = "";
+        break;
+      case 1:
+        let series = `[${work.series[0].name}](https://archiveofourown.org/series/${work.series[0].id})`;
+        formattedSeries = `**Series:** ${series}`;
+        break;
+      default:
+        let allSeries = [];
+        for (let i in work.series) {
+          let seriesLink = `[${work.series[i].name}](https://archiveofourown.org/series/${work.series[i].id});`;
+          allSeries.push(seriesLink);
+          series = allSeries.join(", ");
+          formattedSeries = `**Series:** ${series}`;
+        }
+    }
+  }
+  return formattedSeries;
+};
+
 // Formats the summary for a work-related embed.
 export const workSummary = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
@@ -211,7 +235,7 @@ export const workSummary = async (workURL: string) => {
 
   let formattedSummary;
   if (work.locked) {
-    return "";
+    return;
   } else {
     switch (work.category) {
       case null:
