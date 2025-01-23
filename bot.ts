@@ -9,9 +9,9 @@ import {
 } from "discord.js";
 
 import fs from "node:fs";
-import { oneLineCommaListsAnd } from "common-tags";
 import path from "node:path";
-import { worksEmbed } from "./utils/worksembed"
+import { userEmbed } from "./utils/userembed";
+import { worksEmbed } from "./utils/worksembed";
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {
@@ -88,24 +88,22 @@ client.on(Events.MessageCreate, async (message) => {
     let urls = message.content.replaceAll(">", "").match(ao3Links)!;
 
     // * Identifies what type of AO3 links are in message and responds.
-    let responses = [];
     for (let i in urls) {
       if (urls[i].includes("/works/")) {
+
 				let urlResponse = await worksEmbed(urls[i]);
-				await message.channel.send({embeds: [urlResponse!] });
+				await message.channel.send({embeds: [urlResponse!]});
+
       } else if (urls[i].includes("/users/")) {
-        let urlResponse = `${urls[i]} is a user link.`;
-        responses.push(urlResponse);
+
+				let urlResponse = await userEmbed(urls[i]);
+				await message.channel.send({embeds: [urlResponse!]});
+
       } else if (urls[i].includes("/series/")) {
         let urlResponse = `${urls[i]} is a series link.`;
-        responses.push(urlResponse);
+        await message.channel.send({content: urlResponse!});
       }
     }
-
-    let finalResponse = responses.join(" ");
-
-    // Sends all responses above to Discord.
-    await message.channel.send(finalResponse );
   }
 });
 
