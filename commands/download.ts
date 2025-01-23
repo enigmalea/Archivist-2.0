@@ -10,6 +10,7 @@ import {
 } from "@bobaboard/ao3.js/urls";
 import { oneLine, stripIndents } from "common-tags";
 
+import { allAuthors } from "../utils/works";
 import { getWork } from "@bobaboard/ao3.js";
 
 export const data = new SlashCommandBuilder()
@@ -17,7 +18,7 @@ export const data = new SlashCommandBuilder()
   // Creates the download command and sets the options
   .setName("download")
   .setDescription(
-    "Provides a link so you can download a fic with a specific format from AO3."
+    "Provides a link so you can download a work with a specific format from AO3."
   )
   // Adds a required option for the file type.
   .addStringOption((option) =>
@@ -62,32 +63,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     } else {
       // Gets the title for the work.
       let title = work.title;
-
-      // Creates the author links for the work.
-      let allAuthors;
-      switch (work.authors[0].anonymous) {
-        case true:
-          allAuthors = "Anonymous";
-          break;
-
-        default:
-          let authorsArray = [];
-          let display;
-          let username;
-          let url;
-
-          for (let i in work.authors) {
-            display = work.authors[i].pseud;
-            username = work.authors[i].username;
-            url = getUserProfileUrl({ username: username });
-          }
-
-          let author = `[${display}](${url})`;
-          authorsArray.push(author);
-
-          allAuthors = authorsArray.join(", ");
-          break;
-      }
+      let creators = await allAuthors(workURL);
 
       /*
 			Defines the file type info from the file type option of the command
@@ -110,7 +86,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       )}.${file}`;
 
       // creates the description for the discord embed.
-      const description = stripIndents`by ${allAuthors}
+      const description = stripIndents`by ${creators}
 		
 		*Click the link below to download the **${file}** file you requested.*
 

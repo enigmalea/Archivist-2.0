@@ -5,6 +5,7 @@ import {
   lastUpdated,
   ratingIcon,
   workCategory,
+  workSeries,
   workStatus,
   workSummary
 } from "../utils/works";
@@ -25,6 +26,7 @@ export var worksEmbed = async (workURL: string) => {
     let color = await embedColor(workURL);
 
     let creators = await allAuthors(workURL);
+		let series = await workSeries(workURL);
 
     let wordCount = work.words.toString();
     let chapters = await chapterDisplay(workURL);
@@ -40,7 +42,7 @@ export var worksEmbed = async (workURL: string) => {
 		let summary = await workSummary(workURL);
 
     // TODO: add series and collections to description.
-    let description = `by ${creators}`;
+    let description = `by ${creators!}\n${series!}`;
 
     // * Constructs embed to send to Discord.
     const worksEmbed = new EmbedBuilder()
@@ -65,15 +67,15 @@ export var worksEmbed = async (workURL: string) => {
       .addFields({ name: "Updated:", value: updatedDate, inline: true })
       .addFields({ name: "Status:", value: status, inline: true })
 
-      .addFields({ name: "Rating:", value: rating, inline: true })
+      .addFields({ name: "Rating:", value: rating!, inline: true })
       .addFields({ name: "Warnings:", value: warnings, inline: true })
       .addFields({ name: "Category:", value: category, inline: true })
 
-			.addFields({ name: "Summary:", value: summary, inline: false })
+			.addFields({ name: "Summary:", value: summary!, inline: false })
 
       .setTimestamp()
       .setFooter({
-        text: `bot not affiliated with OTW or AO3`,
+        text: "bot not affiliated with OTW or AO3",
       });
 
     return worksEmbed;

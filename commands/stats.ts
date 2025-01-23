@@ -12,13 +12,10 @@ import {
   workStatus,
 } from "../utils/works";
 import { ao3WorkError, authError } from "../utils/errors";
-import {
-  getUserProfileUrl,
-  getWorkDetailsFromUrl,
-} from "@bobaboard/ao3.js/urls";
 
 import dayjs from "dayjs";
 import { getWork } from "@bobaboard/ao3.js";
+import { getWorkDetailsFromUrl } from "@bobaboard/ao3.js/urls";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 
 // Extends dayjs to offer localized date formats.
@@ -43,7 +40,8 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 
   if (
     // ! Tests if the url provided is an ao3 work URL and if not, produces an error message.
-    workURL?.includes("/works/") === false
+    workURL?.includes("archiveofourown.org/works/") === false &&
+    workURL?.includes("ao3.org/works/") === false
   ) {
     await interaction.reply(ao3WorkError);
   } else {
@@ -73,7 +71,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       let creators = await allAuthors(workURL);
 
       // TODO: add series and collections to description.
-      let description = `by ${creators}`;
+      let description = `by ${creators!}`;
 
       // * Constructs embed to send to Discord.
       const statsEmbed = new EmbedBuilder()
@@ -86,7 +84,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
           url: "https://archiveofourown.org",
         })
         .setDescription(description)
-        .addFields({ name: "Rating:", value: rating, inline: true })
+        .addFields({ name: "Rating:", value: rating!, inline: true })
         .addFields({ name: "Language:", value: work.language, inline: true })
         .addFields({ name: "Category:", value: category, inline: true })
 
