@@ -14,6 +14,10 @@ import { EmbedBuilder } from "discord.js";
 import dayjs from "dayjs";
 import { getWork } from "@bobaboard/ao3.js";
 import { getWorkDetailsFromUrl } from "@bobaboard/ao3.js/urls";
+import localizedFormat from "dayjs/plugin/localizedFormat";
+
+// Extends dayjs to offer localized date formats.
+dayjs.extend(localizedFormat);
 
 export var worksEmbed = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;

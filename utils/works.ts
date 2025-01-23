@@ -7,6 +7,9 @@ import dayjs from "dayjs";
 import { getWork } from "@bobaboard/ao3.js";
 import localizedFormat from "dayjs/plugin/localizedFormat";
 
+// Extends dayjs to offer localized date formats.
+dayjs.extend(localizedFormat);
+
 // Creates the author links for the work.
 export const allAuthors = async (workURL: string) => {
   // Defines the work variable from the url the user input.
