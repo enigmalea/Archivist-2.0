@@ -10,6 +10,7 @@ import {
 
 import fs from "node:fs";
 import path from "node:path";
+import { seriesEmbed } from "./utils/seriesembed";
 import { userEmbed } from "./utils/userembed";
 import { worksEmbed } from "./utils/worksembed";
 
@@ -100,8 +101,10 @@ client.on(Events.MessageCreate, async (message) => {
 				await message.channel.send({embeds: [urlResponse!]});
 
       } else if (urls[i].includes("/series/")) {
-        let urlResponse = `${urls[i]} is a series link.`;
-        await message.channel.send({content: urlResponse!});
+
+				let urlResponse = await seriesEmbed(urls[i]);
+				await message.channel.send({embeds: [urlResponse!]});
+
       }
     }
   }
