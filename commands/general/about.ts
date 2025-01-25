@@ -5,8 +5,7 @@ import {
 } from "discord.js";
 import { oneLine, stripIndents } from "common-tags";
 
-import type { ClientWithCommands } from "../bot";
-import { version as botVersion } from "../package.json";
+import { version as botVersion } from "../../package.json";
 
 export const data = new SlashCommandBuilder()
 // Creates the about command.

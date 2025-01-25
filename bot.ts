@@ -10,9 +10,9 @@ import {
 
 import fs from "node:fs";
 import path from "node:path";
-import { seriesEmbed } from "./utils/seriesembed";
-import { userEmbed } from "./utils/userembed";
-import { worksEmbed } from "./utils/worksembed";
+import { seriesEmbed } from "./utils/embeds/seriesembed";
+import { userEmbed } from "./utils/embeds/userembed";
+import { worksEmbed } from "./utils/embeds/worksembed";
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {
@@ -38,7 +38,7 @@ const client = new ClientWithCommands({
 // Loads event listeners.
 const eventsPath = path.join(__dirname, "events");
 const eventFiles = fs.readdirSync(eventsPath).filter((file) => {
-  console.log("Attempting to load event file:", file);
+  console.log("Event Loaded:", file);
   return file.endsWith(".js");
 });
 
@@ -53,21 +53,26 @@ for (const file of eventFiles) {
 }
 
 // Loads commands.
-const commandsPath = path.join(__dirname, "commands");
-const commandFiles = fs.readdirSync(commandsPath).filter((file) => {
-  console.log("Attempting to load command file:", file);
-  return file.endsWith(".js");
-});
+const foldersPath = path.join(__dirname, "commands");
+const commandFolders = fs.readdirSync(foldersPath);
 
-for (const file of commandFiles) {
-  const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
-  if ("data" in command && "execute" in command) {
-    client.commands.set(command.data.name, command);
-  } else {
-    console.log(
-      `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
-    );
+for (const folder of commandFolders) {
+  const commandsPath = path.join(foldersPath, folder);
+  const commandFiles = fs
+    .readdirSync(commandsPath)
+    .filter((file) => file.endsWith(".js"));
+  for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+
+    if ("data" in command && "execute" in command) {
+      client.commands.set(command.data.name, command);
+      console.log("Command Loaded:", file);
+    } else {
+      console.log(
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+      );
+    }
   }
 }
 
@@ -91,20 +96,14 @@ client.on(Events.MessageCreate, async (message) => {
     // * Identifies what type of AO3 links are in message and responds.
     for (let i in urls) {
       if (urls[i].includes("/works/")) {
-
-				let urlResponse = await worksEmbed(urls[i]);
-				await message.channel.send({embeds: [urlResponse!]});
-
+        let urlResponse = await worksEmbed(urls[i]);
+        await message.channel.send({ embeds: [urlResponse!] });
       } else if (urls[i].includes("/users/")) {
-
-				let urlResponse = await userEmbed(urls[i]);
-				await message.channel.send({embeds: [urlResponse!]});
-
+        let urlResponse = await userEmbed(urls[i]);
+        await message.channel.send({ embeds: [urlResponse!] });
       } else if (urls[i].includes("/series/")) {
-
-				let urlResponse = await seriesEmbed(urls[i]);
-				await message.channel.send({embeds: [urlResponse!]});
-
+        let urlResponse = await seriesEmbed(urls[i]);
+        await message.channel.send({ embeds: [urlResponse!] });
       }
     }
   }

@@ -3,14 +3,14 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
-import { ao3WorkError, authError } from "../utils/errors";
+import { ao3WorkError, authError } from "../../utils/errors";
 import {
   getUserProfileUrl,
   getWorkDetailsFromUrl,
 } from "@bobaboard/ao3.js/urls";
 import { oneLine, stripIndents } from "common-tags";
 
-import { allAuthors } from "../utils/works";
+import { allAuthors } from "../../utils/works";
 import { getWork } from "@bobaboard/ao3.js";
 
 export const data = new SlashCommandBuilder()
