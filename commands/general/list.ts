@@ -5,7 +5,6 @@ import {
 } from "discord.js";
 
 import { ao3SeriesError } from "../../utils/errors";
-import { commaLists } from "common-tags";
 import { getSeries } from "@bobaboard/ao3.js";
 import { getUserProfileUrl } from "@bobaboard/ao3.js/urls";
 
@@ -57,8 +56,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         // For each author in the array, we define their display name (pseud), username (actual AO3 username), and their url.
         for (let i in series.authors) {
           const display = series.authors[i].pseud;
-          const username = series.authors[i].username;
-          const url = getUserProfileUrl({ username: username });
+          const url = getUserProfileUrl({ username: series.authors[i].username });
 
           // Construct a new array consisting of a markdown formatted masked link of their display name and url.
           const author = `[${display}](${url})`;
@@ -66,7 +64,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         }
 
         // Join the array of markdown links with commas to create a string for display.
-        seriesAuthors = commaLists`${authorsArray}`;
+        seriesAuthors = authorsArray.join(", ");
         break;
     }
 
@@ -75,12 +73,15 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 		for (let i in series.works) {
 			const title = series.works[i].title;
 			const url = series.works[i].url;
-			const link = `${i + 1}. [${title}](${url})`;
+			const count = series.works.indexOf(series.works[i]) + 1;
+			const link = `${count}. [${title}](${url})`;
 
 			allWorks.push(link);
 		}
 
-		let seriesWorks = allWorks.join("\n")
+		let seriesWorks = allWorks.join("\n");
+
+		let description = "by " + seriesAuthors + "\n\n" + seriesWorks
 
     // * Constructs embed to send to Discord.
     const listEmbed = new EmbedBuilder()
@@ -92,7 +93,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         iconURL: "https://i.imgur.com/Ml4X1T6.png",
         url: "https://archiveofourown.org",
       })
-      .setDescription(seriesWorks)
+      .setDescription(description)
       .setTimestamp()
       .setFooter({
         text: `bot not affiliated with OTW or AO3`,
