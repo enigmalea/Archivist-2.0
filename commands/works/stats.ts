@@ -10,8 +10,8 @@ import {
   lastUpdated,
   ratingIcon,
   workStatus,
-} from "../utils/works";
-import { ao3WorkError, authError } from "../utils/errors";
+} from "../../utils/works";
+import { ao3WorkError, authError } from "../../utils/errors";
 
 import dayjs from "dayjs";
 import { getWork } from "@bobaboard/ao3.js";
