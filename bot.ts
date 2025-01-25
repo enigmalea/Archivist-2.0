@@ -10,9 +10,9 @@ import {
 
 import fs from "node:fs";
 import path from "node:path";
-import { seriesEmbed } from "./utils/seriesembed";
-import { userEmbed } from "./utils/userembed";
-import { worksEmbed } from "./utils/worksembed";
+import { seriesEmbed } from "./utils/embeds/seriesembed";
+import { userEmbed } from "./utils/embeds/userembed";
+import { worksEmbed } from "./utils/embeds/worksembed";
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {

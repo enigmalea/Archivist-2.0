@@ -8,7 +8,7 @@ import {
   workSeries,
   workStatus,
   workSummary
-} from "../utils/works";
+} from "../../utils/works";
 
 import { EmbedBuilder } from "discord.js";
 import dayjs from "dayjs";
