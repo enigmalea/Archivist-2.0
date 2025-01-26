@@ -1,11 +1,16 @@
 require("dotenv").config();
 
 import {
+  ActionRowBuilder,
   BaseInteraction,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   Collection,
+  ComponentType,
   Events,
   GatewayIntentBits,
+  MessageFlags,
 } from "discord.js";
 
 import fs from "node:fs";
@@ -105,11 +110,49 @@ client.on(Events.MessageCreate, async (message) => {
         let urlResponse = await seriesEmbed(urls[i]);
         await message.channel.send({ embeds: [urlResponse!] });
       } else if (urls[i].includes("/chapters/")) {
+        const question = "Would you like a work or chapter embed?";
 
-				const question = "Would you like a work or content embed?"
+        const work = new ButtonBuilder()
+          .setCustomId("work")
+          .setLabel("Work")
+          .setStyle(ButtonStyle.Secondary);
 
-				await message.channel.send({content: question});
-			}
+        const chapter = new ButtonBuilder()
+          .setCustomId("chapter")
+          .setLabel("Chapter")
+          .setStyle(ButtonStyle.Secondary);
+
+        const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          work,
+          chapter
+        );
+
+				const botReply = await message.channel.send({
+          content: question,
+          components: [buttons]
+        });
+
+        const collector = botReply.createMessageComponentCollector({
+          componentType: ComponentType.Button,
+          time: 15_000,
+        });
+
+        collector.on("collect", (i) => {
+					console.log(i.user);
+          if (i.user.id === message.author.id) {
+            i.reply(`${i.user.id} clicked on the ${i.customId} button.`);
+          } else {
+            i.reply({
+              content: `These buttons aren't for you!`,
+              flags: MessageFlags.Ephemeral,
+            });
+          }
+        });
+
+        collector.on("end", (collected) => {
+          console.log(`Collected ${collected.size} interactions.`);
+        });
+      }
     }
   }
 });
