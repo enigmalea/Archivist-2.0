@@ -140,6 +140,7 @@ client.on(Events.MessageCreate, async (message) => {
         collector.on("collect", (i) => {
 					console.log(i.user);
           if (i.user.id === message.author.id) {
+						botReply.delete();
             i.reply(`${i.user.id} clicked on the ${i.customId} button.`);
           } else {
             i.reply({
