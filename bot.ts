@@ -95,7 +95,7 @@ client.on(Events.MessageCreate, async (message) => {
 
     // * Identifies what type of AO3 links are in message and responds.
     for (let i in urls) {
-      if (urls[i].includes("/works/")) {
+      if (urls[i].includes("/works/") && urls[i].indexOf("/chapters/") === -1) {
         let urlResponse = await worksEmbed(urls[i]);
         await message.channel.send({ embeds: [urlResponse!] });
       } else if (urls[i].includes("/users/")) {
@@ -104,7 +104,12 @@ client.on(Events.MessageCreate, async (message) => {
       } else if (urls[i].includes("/series/")) {
         let urlResponse = await seriesEmbed(urls[i]);
         await message.channel.send({ embeds: [urlResponse!] });
-      }
+      } else if (urls[i].includes("/chapters/")) {
+
+				const question = "Would you like a work or content embed?"
+
+				await message.channel.send({content: question});
+			}
     }
   }
 });
