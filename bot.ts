@@ -1,5 +1,3 @@
-require("dotenv").config();
-
 import {
   ActionRowBuilder,
   BaseInteraction,
@@ -12,12 +10,20 @@ import {
   GatewayIntentBits,
   MessageFlags,
 } from "discord.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { authError } from "./utils/errors.ts";
+import dotenv from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
-import { seriesEmbed } from "./utils/embeds/seriesembed";
-import { userEmbed } from "./utils/embeds/userembed";
-import { worksEmbed } from "./utils/embeds/worksembed";
+import { seriesEmbed } from "./utils/embeds/seriesembed.ts";
+import { userEmbed } from "./utils/embeds/userembed.ts";
+import { worksEmbed } from "./utils/embeds/worksembed.ts";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config();
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {
@@ -49,7 +55,8 @@ const eventFiles = fs.readdirSync(eventsPath).filter((file) => {
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
-  const event = require(filePath);
+  const eventModule = await import(pathToFileURL(filePath).href);
+  const event = eventModule.default ?? eventModule;
   if (event.once) {
     client.once(event.name, (...args: any) => event.execute(...args));
   } else {
@@ -68,14 +75,15 @@ for (const folder of commandFolders) {
     .filter((file) => file.endsWith(".js"));
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
+    const commandModule = await import(pathToFileURL(filePath).href);
+    const command = commandModule.default ?? commandModule;
 
     if ("data" in command && "execute" in command) {
       client.commands.set(command.data.name, command);
       console.log("Command Loaded:", file);
     } else {
       console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
       );
     }
   }
@@ -101,8 +109,14 @@ client.on(Events.MessageCreate, async (message) => {
     // * Identifies what type of AO3 links are in message and responds.
     for (let i in urls) {
       if (urls[i].includes("/works/") && urls[i].indexOf("/chapters/") === -1) {
-        let urlResponse = await worksEmbed(urls[i]);
-        await message.channel.send({ embeds: [urlResponse!] });
+        try {
+          let urlResponse = await worksEmbed(urls[i]);
+          await message.channel.send({ embeds: [urlResponse!] });
+        } catch (error) {
+          if (error === "locked") {
+            await message.channel.send(authError);
+          }
+        }
       } else if (urls[i].includes("/users/")) {
         let urlResponse = await userEmbed(urls[i]);
         await message.channel.send({ embeds: [urlResponse!] });
@@ -124,12 +138,12 @@ client.on(Events.MessageCreate, async (message) => {
 
         const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
           work,
-          chapter
+          chapter,
         );
 
-				const botReply = await message.channel.send({
+        const botReply = await message.channel.send({
           content: question,
-          components: [buttons]
+          components: [buttons],
         });
 
         const collector = botReply.createMessageComponentCollector({
@@ -137,13 +151,27 @@ client.on(Events.MessageCreate, async (message) => {
           time: 15_000,
         });
 
-        collector.on("collect", (i) => {
-					console.log(i.user);
-          if (i.user.id === message.author.id) {
-						botReply.delete();
-            i.reply(`${i.user.id} clicked on the ${i.customId} button.`);
+        collector.on("collect", async (buttonInteraction) => {
+          if (
+            buttonInteraction.user.id === message.author.id &&
+            buttonInteraction.customId === "work"
+          ) {
+            botReply.delete();
+            let urlResponse = await worksEmbed(urls[i]);
+            buttonInteraction.reply({
+              embeds: [urlResponse],
+            });
+          } else if (
+            buttonInteraction.user.id === message.author.id &&
+            buttonInteraction.customId === "chapter"
+          ) {
+            botReply.delete();
+            buttonInteraction.reply({
+              content:
+                "This could be a chapter embed if discord.js didn't hate me.",
+            });
           } else {
-            i.reply({
+            buttonInteraction.reply({
               content: `These buttons aren't for you!`,
               flags: MessageFlags.Ephemeral,
             });

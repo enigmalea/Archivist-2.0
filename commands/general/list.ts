@@ -4,9 +4,9 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
-import { ao3SeriesError } from "../../utils/errors";
-import { getSeries } from "@bobaboard/ao3.js";
-import { getUserProfileUrl } from "@bobaboard/ao3.js/urls";
+import { ao3SeriesError } from "../../utils/errors.ts";
+import { getSeries } from "@fujocoded/ao3.js";
+import { getUserProfileUrl } from "@fujocoded/ao3.js/urls";
 
 export const data = new SlashCommandBuilder()
 

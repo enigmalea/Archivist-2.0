@@ -1,6 +1,6 @@
 import { BaseInteraction, Events } from "discord.js";
 
-import type { ClientWithCommands } from "../bot";
+import type { ClientWithCommands } from "../bot.ts";
 
 export const name = Events.InteractionCreate;
 export const execute = async (interaction: BaseInteraction) => {
