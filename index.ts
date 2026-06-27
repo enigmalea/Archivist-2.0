@@ -1,6 +1,7 @@
-require("dotenv").config();
-
 import { ShardingManager } from "discord.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const manager = new ShardingManager("./dist/bot.js", {
   token: process.env.TOKEN,

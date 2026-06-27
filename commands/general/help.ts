@@ -8,7 +8,7 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
-import type { ClientWithCommands } from "../../bot";
+import type { ClientWithCommands } from "../../bot.ts";
 
 const WEBSITE_URL = "https://www.archivistbot.com";
 const SUPPORT_SERVER_URL = "https://discord.gg/FzhC9bVFva";

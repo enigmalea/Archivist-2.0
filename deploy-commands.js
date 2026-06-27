@@ -1,9 +1,15 @@
-require("dotenv").config({ override: true });
+import { REST, Routes } from "discord.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-const { REST, Routes } = require("discord.js");
+import dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
+
+dotenv.config({ override: true });
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function fail(message, error = null) {
   console.error(message);
@@ -13,7 +19,7 @@ function fail(message, error = null) {
   process.exit(1);
 }
 
-function collectCommands(commandsRoot) {
+async function collectCommands(commandsRoot) {
   const commands = [];
   const commandFolders = fs.readdirSync(commandsRoot);
 
@@ -30,7 +36,8 @@ function collectCommands(commandsRoot) {
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
-      const command = require(filePath);
+      const commandModule = await import(pathToFileURL(filePath).href);
+      const command = commandModule.default ?? commandModule;
       if ("data" in command && "execute" in command) {
         commands.push(command.data.toJSON());
       } else {
@@ -54,16 +61,13 @@ async function registerCommands(runtimeRoot) {
     fail(`Could not find commands directory at ${commandsRoot}.`);
   }
 
-  const commands = collectCommands(commandsRoot);
+  const commands = await collectCommands(commandsRoot);
   const rest = new REST().setToken(process.env.TOKEN);
 
   console.log(`Started refreshing ${commands.length} application (/) commands.`);
 
   const data = await rest.put(
-    Routes.applicationGuildCommands(
-      process.env.CLIENT_ID,
-      process.env.GUILD_ID,
-    ),
+    Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
     { body: commands },
   );
 

@@ -1,18 +1,29 @@
-require("dotenv").config();
-
 import {
+  ActionRowBuilder,
   BaseInteraction,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   Collection,
+  ComponentType,
   Events,
   GatewayIntentBits,
+  MessageFlags,
 } from "discord.js";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { authError } from "./utils/errors.ts";
+import dotenv from "dotenv";
 import fs from "node:fs";
 import path from "node:path";
-import { seriesEmbed } from "./utils/embeds/seriesembed";
-import { userEmbed } from "./utils/embeds/userembed";
-import { worksEmbed } from "./utils/embeds/worksembed";
+import { seriesEmbed } from "./utils/embeds/seriesembed.ts";
+import { userEmbed } from "./utils/embeds/userembed.ts";
+import { worksEmbed } from "./utils/embeds/worksembed.ts";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config();
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {
@@ -44,7 +55,8 @@ const eventFiles = fs.readdirSync(eventsPath).filter((file) => {
 
 for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
-  const event = require(filePath);
+  const eventModule = await import(pathToFileURL(filePath).href);
+  const event = eventModule.default ?? eventModule;
   if (event.once) {
     client.once(event.name, (...args: any) => event.execute(...args));
   } else {
@@ -63,7 +75,8 @@ for (const folder of commandFolders) {
     .filter((file) => file.endsWith(".js"));
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
+    const commandModule = await import(pathToFileURL(filePath).href);
+    const command = commandModule.default ?? commandModule;
 
     if ("data" in command && "execute" in command) {
       client.commands.set(command.data.name, command);
@@ -95,15 +108,79 @@ client.on(Events.MessageCreate, async (message) => {
 
     // * Identifies what type of AO3 links are in message and responds.
     for (let i in urls) {
-      if (urls[i].includes("/works/")) {
-        let urlResponse = await worksEmbed(urls[i]);
-        await message.channel.send({ embeds: [urlResponse!] });
+      if (urls[i].includes("/works/") && urls[i].indexOf("/chapters/") === -1) {
+        try {
+          let urlResponse = await worksEmbed(urls[i]);
+          await message.channel.send({ embeds: [urlResponse!] });
+        } catch (error) {
+          if (error === "locked") {
+            await message.channel.send(authError);
+          }
+        }
       } else if (urls[i].includes("/users/")) {
         let urlResponse = await userEmbed(urls[i]);
         await message.channel.send({ embeds: [urlResponse!] });
       } else if (urls[i].includes("/series/")) {
         let urlResponse = await seriesEmbed(urls[i]);
         await message.channel.send({ embeds: [urlResponse!] });
+      } else if (urls[i].includes("/chapters/")) {
+        const question = "Would you like a work or chapter embed?";
+
+        const work = new ButtonBuilder()
+          .setCustomId("work")
+          .setLabel("Work")
+          .setStyle(ButtonStyle.Secondary);
+
+        const chapter = new ButtonBuilder()
+          .setCustomId("chapter")
+          .setLabel("Chapter")
+          .setStyle(ButtonStyle.Secondary);
+
+        const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          work,
+          chapter,
+        );
+
+        const botReply = await message.channel.send({
+          content: question,
+          components: [buttons],
+        });
+
+        const collector = botReply.createMessageComponentCollector({
+          componentType: ComponentType.Button,
+          time: 15_000,
+        });
+
+        collector.on("collect", async (buttonInteraction) => {
+          if (
+            buttonInteraction.user.id === message.author.id &&
+            buttonInteraction.customId === "work"
+          ) {
+            botReply.delete();
+            let urlResponse = await worksEmbed(urls[i]);
+            buttonInteraction.reply({
+              embeds: [urlResponse],
+            });
+          } else if (
+            buttonInteraction.user.id === message.author.id &&
+            buttonInteraction.customId === "chapter"
+          ) {
+            botReply.delete();
+            buttonInteraction.reply({
+              content:
+                "This could be a chapter embed if discord.js didn't hate me.",
+            });
+          } else {
+            buttonInteraction.reply({
+              content: `These buttons aren't for you!`,
+              flags: MessageFlags.Ephemeral,
+            });
+          }
+        });
+
+        collector.on("end", (collected) => {
+          console.log(`Collected ${collected.size} interactions.`);
+        });
       }
     }
   }

@@ -11,10 +11,10 @@ import {
 } from "../../utils/works.ts";
 
 import { EmbedBuilder } from "discord.js";
-import dayjs from "dayjs";
+import dayjs from 'dayjs';
 import { getWork } from "@fujocoded/ao3.js";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
-import localizedFormat from "dayjs/plugin/localizedFormat.js";
+import localizedFormat from 'dayjs/plugin/localizedFormat.js'
 
 // Extends dayjs to offer localized date formats.
 dayjs.extend(localizedFormat);
