@@ -70,7 +70,7 @@ for (const folder of commandFolders) {
       console.log("Command Loaded:", file);
     } else {
       console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`
+        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
       );
     }
   }

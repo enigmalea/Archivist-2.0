@@ -53,8 +53,9 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   // Constructs links list
   const serverURL = "https://discord.gg/FzhC9bVFva";
   const homepageURL = "https://www.archivistbot.com";
-  const inviteURL =
-    "https://discord.com/api/oauth2/authorize?client_id=812505952959856690&permissions=294205549632&scope=bot";
+  const clientId =
+    process.env.CLIENT_ID || interaction.client.user?.id || "YOUR_CLIENT_ID";
+  const inviteURL = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&scope=bot%20applications.commands&permissions=395137`;
   const privacyPolicy = "https://www.archivistbot.com/privacy";
 
   const links = stripIndents`💻 [archivistbot.com](${homepageURL})
