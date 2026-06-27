@@ -19,12 +19,12 @@ import localizedFormat from "dayjs/plugin/localizedFormat.js";
 // Extends dayjs to offer localized date formats.
 dayjs.extend(localizedFormat);
 
-export var worksEmbed = async (workURL: string) => {
+export var chapterEmbed = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
   const work = await getWork({ workId: workId });
 
   if (work.locked) {
-    return;
+    return undefined;
   } else {
     // Creates the variables for the embed.
     let color = await embedColor(workURL);

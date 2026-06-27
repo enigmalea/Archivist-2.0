@@ -3,15 +3,14 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
-import { ao3WorkError, authError } from "../../utils/errors";
-import {
-  getUserProfileUrl,
-  getWorkDetailsFromUrl,
-} from "@bobaboard/ao3.js/urls";
+import { ao3WorkError, authError } from "../../utils/errors.ts";
 import { oneLine, stripIndents } from "common-tags";
 
-import { allAuthors } from "../../utils/works";
-import { getWork } from "@bobaboard/ao3.js";
+import { allAuthors } from "../../utils/works.ts";
+import { getWork } from "@fujocoded/ao3.js";
+import {
+  getWorkDetailsFromUrl,
+} from "@fujocoded/ao3.js/urls";
 
 export const data = new SlashCommandBuilder()
 
@@ -43,6 +42,9 @@ export const data = new SlashCommandBuilder()
   );
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
+	// Defer for long-running operation
+	await interaction.deferReply();
+
   // Assigns a variable to the url provided.
   const workURL = interaction.options.getString("url")!;
 
@@ -111,7 +113,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         });
 
       // * Sends reply to Discord.
-      await interaction.reply({ embeds: [downloadEmbed] });
+      await interaction.editReply({ embeds: [downloadEmbed] });
     }
   }
 };

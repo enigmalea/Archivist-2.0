@@ -1,8 +1,8 @@
 import { EmbedBuilder } from "discord.js";
 import dayjs from "dayjs";
-import { getSeries } from "@bobaboard/ao3.js";
-import { getUserProfileUrl } from "@bobaboard/ao3.js/urls";
-import localizedFormat from "dayjs/plugin/localizedFormat";
+import { getSeries } from "@fujocoded/ao3.js";
+import { getUserProfileUrl } from "@fujocoded/ao3.js/urls";
+import localizedFormat from "dayjs/plugin/localizedFormat.js";
 import { stripIndents } from "common-tags";
 
 // Extends dayjs to offer localized date formats.

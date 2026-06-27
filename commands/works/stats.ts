@@ -10,13 +10,13 @@ import {
   lastUpdated,
   ratingIcon,
   workStatus,
-} from "../../utils/works";
-import { ao3WorkError, authError } from "../../utils/errors";
+} from "../../utils/works.ts";
+import { ao3WorkError, authError } from "../../utils/errors.ts";
 
 import dayjs from "dayjs";
-import { getWork } from "@bobaboard/ao3.js";
-import { getWorkDetailsFromUrl } from "@bobaboard/ao3.js/urls";
-import localizedFormat from "dayjs/plugin/localizedFormat";
+import { getWork } from "@fujocoded/ao3.js";
+import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
+import localizedFormat from "dayjs/plugin/localizedFormat.js";
 
 // Extends dayjs to offer localized date formats.
 dayjs.extend(localizedFormat);
@@ -35,6 +35,9 @@ export const data = new SlashCommandBuilder()
   );
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
+	// Defer reply for long-running operation.
+  await interaction.deferReply();
+
   // Assigns a variable to the url provided.
   const workURL = interaction.options.getString("url")!;
 
@@ -110,7 +113,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         });
 
       // * Sends reply to Discord.
-      await interaction.reply({ embeds: [statsEmbed] });
+      await interaction.editReply({ embeds: [statsEmbed] });
     }
   }
 };

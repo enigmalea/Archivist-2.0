@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "discord.js";
-import { getUser } from "@bobaboard/ao3.js";
+import { getUser } from "@fujocoded/ao3.js";
 import { stripIndents } from "common-tags";
 
 export var userEmbed = async (userURL: string) => {
@@ -8,7 +8,7 @@ export var userEmbed = async (userURL: string) => {
     .replaceAll("http://", "")
     .split("/")[2];
   const user = await getUser({ username: username });
-
+	
   let header;
   switch (user.header) {
     case null:

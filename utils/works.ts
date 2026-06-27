@@ -1,11 +1,11 @@
 import {
   getUserProfileUrl,
   getWorkDetailsFromUrl,
-} from "@bobaboard/ao3.js/urls";
+} from "@fujocoded/ao3.js/urls";
 
 import dayjs from "dayjs";
-import { getWork } from "@bobaboard/ao3.js";
-import localizedFormat from "dayjs/plugin/localizedFormat";
+import { getWork } from "@fujocoded/ao3.js";
+import localizedFormat from "dayjs/plugin/localizedFormat.js";
 
 // Extends dayjs to offer localized date formats.
 dayjs.extend(localizedFormat);

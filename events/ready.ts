@@ -1,6 +1,6 @@
 import { ActivityType, Events } from "discord.js";
 
-import type { ClientWithCommands } from "../bot";
+import type { ClientWithCommands } from "../bot.ts";
 
 export const name = Events.ClientReady;
 export const once = true;

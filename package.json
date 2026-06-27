@@ -2,26 +2,26 @@
   "name": "archivist",
   "version": "2.0.0",
   "main": "dist/index.js",
+  "type": "module",
   "license": "MIT",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-		"test": "npm run build && npm run start",
-    "dev": "tsc -w & nodemon dist/index.js",
-    "register": "node dist/deploy-commands.js",
-    "update": "npm install @bobaboard/ao3.js@latest common-tags@latest dayjs@latest discord.js@latest dotenv@latest @types/common-tags@latest @types/node@latest eslint@latest typescript@latest"
+    "test": "npm run build && npm run start",
+    "register": "node dist/deploy-commands.js"
   },
   "dependencies": {
-    "@bobaboard/ao3.js": "^0.20.0",
+    "@fujocoded/ao3.js": "^0.23.1",
+    "bottleneck": "^2.19.5",
     "common-tags": "^1.8.2",
-    "dayjs": "^1.11.13",
-    "discord.js": "^14.17.3",
-    "dotenv": "^16.4.7"
+    "dayjs": "^1.11.21",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2"
   },
   "devDependencies": {
     "@types/common-tags": "^1.8.4",
-    "@types/node": "^22.10.5",
-    "eslint": "^9.18.0",
-    "typescript": "^5.7.3"
+    "@types/node": "^26.0.1",
+    "eslint": "^10.6.0",
+    "typescript": "^6.0.3"
   }
 }
