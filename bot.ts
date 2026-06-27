@@ -209,7 +209,7 @@ client.on(Events.MessageCreate, async (message) => {
             );
             // replace with your chapter embed logic when ready
             const urlResponse = await ao3Limiter.schedule(() => chapterEmbed(url));
-            await waitingMsg.edit({ content: "", embeds: [urlResponse] });
+            await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
           } else {
             buttonInteraction.reply({
               content: `These buttons aren't for you!`,
