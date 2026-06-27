@@ -14,14 +14,14 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   // Defines variables for embed.
   const botName = interaction.client.user.username;
   const freeOptions = stripIndents`**✨ [Join the Support Server](https://discord.gg/FzhC9bVFva)**
-    ▸ Have an idea for a feature or something you'd like to see? Join the Support Server to share it with the dev.
+    ▸ Have an idea for a feature or something you'd like to see? Join the Support Server to share it with the devs.
 
     **✨ Vote and rate the bot on botlists**
     ▸ [DiscordBotList](https://discordbotlist.com/bots/archivist)
     ▸ [top.gg](https://top.gg/bot/812505952959856690)
 
     **✨ Tell your friends**
-    ▸ Post about <:logo:848627809647329320> **${botName}** on tumblr, twitter, or other fandom spaces.
+    ▸ Post about <:logo:848627809647329320> **${botName}** on tumblr, BlueSky, or other fandom spaces.
     ▸ Ask mods to add <:logo:848627809647329320> **${botName}** to Discord servers you're in.`;
 
   const paidOptions = oneLine`__There are no premium or paid features to use 

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fujocoded/ao3.js": "^0.23.1",
+    "bottleneck": "^2.19.5",
     "common-tags": "^1.8.2",
     "dayjs": "^1.11.21",
     "discord.js": "^14.26.4",

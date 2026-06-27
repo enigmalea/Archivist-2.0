@@ -32,6 +32,9 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   ) {
     await interaction.reply(ao3SeriesError);
   } else {
+		// Defer for long-running operation
+    await interaction.deferReply();
+
     // Now that we are certain this is a work link, assigns variables to identify the work.
     const seriesId = seriesURL
       .replaceAll("https://", "")
@@ -100,6 +103,6 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       });
 
     // * Sends reply to Discord.
-    await interaction.reply({ embeds: [listEmbed] });
+    await interaction.editReply({ embeds: [listEmbed] });
   }
 };

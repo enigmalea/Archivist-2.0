@@ -42,6 +42,9 @@ export const data = new SlashCommandBuilder()
   );
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
+	// Defer for long-running operation
+	await interaction.deferReply();
+
   // Assigns a variable to the url provided.
   const workURL = interaction.options.getString("url")!;
 
@@ -110,7 +113,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         });
 
       // * Sends reply to Discord.
-      await interaction.reply({ embeds: [downloadEmbed] });
+      await interaction.editReply({ embeds: [downloadEmbed] });
     }
   }
 };

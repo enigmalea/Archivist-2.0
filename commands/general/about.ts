@@ -85,7 +85,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     .setColor(0x2f3136)
     .setTitle(`About ${botName}`)
     .addFields(
-      { name: "Owner/Developer", value: "enigmalea", inline: true },
+      { name: "Developers", value: "enigmalea, FoxInBoots", inline: true },
       { name: "Version", value: `${botVersion}`, inline: true },
       { name: "Uptime", value: `${botUptime}`, inline: true },
     )

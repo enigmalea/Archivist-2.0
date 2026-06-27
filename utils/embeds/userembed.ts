@@ -8,7 +8,7 @@ export var userEmbed = async (userURL: string) => {
     .replaceAll("http://", "")
     .split("/")[2];
   const user = await getUser({ username: username });
-
+	
   let header;
   switch (user.header) {
     case null:
