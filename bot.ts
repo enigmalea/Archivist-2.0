@@ -11,7 +11,7 @@ import {
   MessageFlags,
 } from "discord.js";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { getSeriesIdFromUrl, getUsernameFromUrl, handleWorkUrl } from "./utils/ao3Functions.ts"
+import { getSeriesIdFromUrl, getUsernameFromUrl, handleWorkUrl } from "./utils/urls.ts"
 import { seriesCache, userCache, workCache } from "./utils/cache.ts";
 
 import Bottleneck from "bottleneck";

@@ -1,54 +1,17 @@
-import { EmbedBuilder } from "discord.js";
-import dayjs from "dayjs";
-import { getSeries } from "@fujocoded/ao3.js";
-import { getSeriesIdFromUrl } from "../ao3Functions.ts"
-import { getUserProfileUrl } from "@fujocoded/ao3.js/urls";
-import localizedFormat from "dayjs/plugin/localizedFormat.js";
-import { stripIndents } from "common-tags";
+import { formatCompletionStatus, startedDate, updatedAt } from "../statuses.ts";
 
-// Extends dayjs to offer localized date formats.
-dayjs.extend(localizedFormat);
+import { EmbedBuilder } from "discord.js";
+import { constructCreators } from "../creators.ts";
+import { getSeries } from "@fujocoded/ao3.js";
+import { getSeriesIdFromUrl } from "../urls.ts"
+import { stripIndents } from "common-tags";
 
 export var seriesEmbed = async (seriesURL: string) => {
 	const seriesId = getSeriesIdFromUrl(seriesURL);
   const series = await getSeries({ seriesId: seriesId });
 
-  let seriesAuthors;
-  switch (series.authors[0].anonymous) {
-    case true:
-      seriesAuthors = "Anonymous";
-      break;
-
-    // Default for the switch case assumes authors are not anonymous.
-    default:
-      // Constructs variables which are accessible outside of the loop.
-      let authorsArray: string[] = [];
-      // For each author in the array, we define their display name (pseud), username (actual AO3 username), and their url.
-      for (let i in series.authors) {
-        const display = series.authors[i].pseud;
-        const username = series.authors[i].username;
-        const url = getUserProfileUrl({ username: username });
-
-        // Construct a new array consisting of a markdown formatted masked link of their display name and url.
-        const author = `[${display}](${url})`;
-        authorsArray.push(author);
-      }
-
-      // Join the array of markdown links with commas to create a string for display.
-      seriesAuthors = authorsArray.join(", ");
-      break;
-  }
-
-  let complete;
-  switch (series.complete) {
-    case true:
-      complete = "Yes";
-      break;
-
-    default:
-      complete = "No";
-      break;
-  }
+	const creators = constructCreators(series.authors, series.authors?.[0]?.anonymous);
+  const complete = formatCompletionStatus(series);
 
   let notes;
   switch (series.notes) {
@@ -72,7 +35,7 @@ export var seriesEmbed = async (seriesURL: string) => {
       break;
   }
 
-  let description = stripIndents`**Authors:** ${seriesAuthors}
+  let description = stripIndents`**Authors:** ${creators}
 	**Complete:** ${complete}
 	**Works:** ${series.workCount}
 	**Total Word Count:** ${series.words}
@@ -92,12 +55,12 @@ export var seriesEmbed = async (seriesURL: string) => {
 
     .addFields({
       name: "Series Started:",
-      value: dayjs(series.startedAt).format("ll"),
+      value: startedDate(series),
       inline: true,
     })
     .addFields({
       name: "Last Updated:",
-      value: dayjs(series.updatedAt).format("ll"),
+      value: updatedAt(series),
       inline: true,
     })
 

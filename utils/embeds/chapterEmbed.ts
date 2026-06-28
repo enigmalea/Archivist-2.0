@@ -1,23 +1,12 @@
-import {
-  allAuthors,
-  chapterDisplay,
-  embedColor,
-  lastUpdated,
-  ratingIcon,
-  workCategory,
-  workSeries,
-  workStatus,
-  workSummary,
-} from "../../utils/works.ts";
+import { chapterDisplay, formatCompletionStatus, publishedDate, updatedAt } from "../statuses.ts";
+import { embedColor, ratingIcon } from "../ratings.ts";
+import { formatWorkSeries, formatWorkSummary } from "../../utils/details.ts";
 
 import { EmbedBuilder } from "discord.js";
-import dayjs from "dayjs";
+import { constructCreators } from "../creators.ts";
 import { getWork } from "@fujocoded/ao3.js";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
-import localizedFormat from "dayjs/plugin/localizedFormat.js";
-
-// Extends dayjs to offer localized date formats.
-dayjs.extend(localizedFormat);
+import { shipCategories } from "../tags.ts";
 
 export var chapterEmbed = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
@@ -27,26 +16,26 @@ export var chapterEmbed = async (workURL: string) => {
     return undefined;
   } else {
     // Creates the variables for the embed.
-    let color = await embedColor(workURL);
+    const color = embedColor(work);
 
-    let creators = await allAuthors(workURL);
-    let series = await workSeries(workURL);
+    const creators = constructCreators(work.authors, work.authors?.[0]?.anonymous);
+    const series = formatWorkSeries(work);
 
-    let wordCount = work.words.toString();
-    let chapters = await chapterDisplay(workURL);
+    const wordCount = work.words.toString();
+    const chapters = chapterDisplay(work);
 
-    let publishedDate = dayjs(work.publishedAt).format("ll");
-    let updatedDate = await lastUpdated(workURL);
-    let status = await workStatus(workURL);
+    const published = publishedDate(work);
+    const updatedDate = updatedAt(work);
+    const status = formatCompletionStatus(work);
 
-    let rating = await ratingIcon(workURL);
-    let warnings = work.tags.warnings.join(", ");
-    let category = await workCategory(workURL);
+    const rating = ratingIcon(work);
+    const warnings = work.tags.warnings.join(", ");
+    const category = shipCategories(work);
 
-    let summary = await workSummary(workURL);
+    const summary = formatWorkSummary(work);
 
     // TODO: add series and collections to description.
-    let description = `by ${creators!}\n${series!}`;
+    const description = `by ${creators!}\n${series!}`;
 
     // * Constructs embed to send to Discord.
     const worksEmbed = new EmbedBuilder()
@@ -63,11 +52,7 @@ export var chapterEmbed = async (workURL: string) => {
       .addFields({ name: "Chapters:", value: chapters, inline: true })
       .addFields({ name: "Language:", value: work.language, inline: true })
 
-      .addFields({
-        name: "Date Published:",
-        value: publishedDate,
-        inline: true,
-      })
+      .addFields({ name: "Date Published:", value: published, inline: true })
       .addFields({ name: "Updated:", value: updatedDate, inline: true })
       .addFields({ name: "Status:", value: status, inline: true })
 
