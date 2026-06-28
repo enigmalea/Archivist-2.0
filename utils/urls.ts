@@ -1,3 +1,6 @@
+/* 
+URL UTILITIES
+*/
 export function extractPathnameGroup(url: string, regex: RegExp): string {
   try {
     const { pathname } = new URL(url);
@@ -8,14 +11,17 @@ export function extractPathnameGroup(url: string, regex: RegExp): string {
   }
 }
 
+// Extract a username from a profile url
 export function getUsernameFromUrl(userURL: string): string {
   return extractPathnameGroup(userURL, /\/users\/([^/?#]+)/i);
 }
 
+// Extract a seriesID from a seriesURL
 export function getSeriesIdFromUrl(seriesURL: string): string {
   return extractPathnameGroup(seriesURL, /\/series\/(\d+)/i);
 }
 
+// Used by bots to handle incoming works URLs
 export async function handleWorkUrl({
   message,
   url,
