@@ -11,14 +11,14 @@ import {
   MessageFlags,
 } from "discord.js";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { seriesCache, userCache, workCache } from "./utils/cache.ts"
+import { getSeriesIdFromUrl, getUsernameFromUrl, handleWorkUrl } from "./utils/ao3Functions.ts"
+import { seriesCache, userCache, workCache } from "./utils/cache.ts";
 
 import Bottleneck from "bottleneck";
 import { authError } from "./utils/errors.ts";
 import { chapterEmbed } from "./utils/embeds/chapterEmbed.ts";
 import dotenv from "dotenv";
 import fs from "node:fs";
-import { getUser } from "@fujocoded/ao3.js";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 import path from "node:path";
 import { seriesEmbed } from "./utils/embeds/seriesEmbed.ts";
@@ -37,6 +37,20 @@ const ao3Limiter = new Bottleneck({
 });
 
 dotenv.config();
+
+type CachedWork =
+  | { type: "error"; payload: any }
+  | NonNullable<Awaited<ReturnType<typeof worksEmbed>>>;
+
+type CachedUser = NonNullable<Awaited<ReturnType<typeof userEmbed>>>;
+
+type CachedSeries = NonNullable<Awaited<ReturnType<typeof seriesEmbed>>>;
+
+const isCachedWorkError = (
+  value: CachedWork | null | undefined,
+): value is { type: "error"; payload: any } => {
+  return value !== null && value !== undefined && "payload" in value;
+};
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {
@@ -121,44 +135,69 @@ client.on(Events.MessageCreate, async (message) => {
 
     // * Identifies what type of AO3 links are in message and responds.
     for (const url of urls) {
-			
-			// We have a works link that does not contain chapter information
+      // For works link that does not contain chapter information:
       if (url.includes("/works/") && !url.includes("/chapters/")) {
+				const shouldReturn = await handleWorkUrl({
+          message,
+          url,
+          workCache,
+          ao3Limiter,
+          worksEmbed,
+          getWorkDetailsFromUrl,
+          isCachedWorkError,
+          authError,
+        });
+        if (shouldReturn) return;
+				// For user links:
+			} else if (url.includes("/users/")) {
+				// Checks cache for user.
+				const username = getUsernameFromUrl(url);
+				const cachedUser = userCache.get(username) as CachedUser | null;
 
-				// check cache for workID & return cache work embed
-				const workId = getWorkDetailsFromUrl({ url }).workId;
-				const cachedWork = workCache.get(workId);
-
-				if (cachedWork) {
-					await message.channel.send({ embeds: [cachedWork] });
-					return;
+				// If cached, returns cached user embed.
+        if (cachedUser) {
+						await message.channel.send({ embeds: [cachedUser] });
 				}
 
-				// Uncached works begin fetch request from AO3
-        const waitingMsg = await message.channel.send(
-          "⏳ Fetching from AO3...",
-        );
-        try {
-          const urlResponse = await ao3Limiter.schedule(() => worksEmbed(url));
-          await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
-        } catch (error) {
-          if (error === "locked") {
-            await waitingMsg.edit(authError);
-          }
-        }
-      } else if (url.includes("/users/")) {
+				// Uncached user begins fetch from AO3
         const waitingMsg = await message.channel.send(
           "⏳ Fetching from AO3...",
         );
         const urlResponse = await ao3Limiter.schedule(() => userEmbed(url));
+
+					// Adds a good url response to the cache.
+					if (urlResponse) {
+     				 userCache.set(username, urlResponse);
+    			}
+
         await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
+			
+				// For series url:
       } else if (url.includes("/series/")) {
+				// Check cache for seriesId
+				const seriesId = getSeriesIdFromUrl(url);
+				const cachedSeries = seriesCache.get(seriesId) as CachedSeries | null;
+
+				if (cachedSeries) {
+					await message.channel.send({ embeds: [cachedSeries] });
+				}
+
+				// Uncached series begins fetch from AO3
         const waitingMsg = await message.channel.send(
           "⏳ Fetching from AO3...",
         );
         const urlResponse = await ao3Limiter.schedule(() => seriesEmbed(url));
+
+					// Adds a good url response to the cache.
+					if (urlResponse) {
+     				 userCache.set(seriesId, urlResponse);
+    			}
+
         await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
+
+				// For url with chapters in link:
       } else if (url.includes("/chapters/")) {
+				// ask user if they want a work or chapter embed;
         const question = "Would you like a work or chapter embed?";
 
         const work = new ButtonBuilder()
@@ -186,19 +225,27 @@ client.on(Events.MessageCreate, async (message) => {
           time: 15_000,
         });
 
+				// Get the button interaction from user
         collector.on("collect", async (buttonInteraction) => {
+
+					// User selects work
           if (
             buttonInteraction.user.id === message.author.id &&
             buttonInteraction.customId === "work"
           ) {
             botReply.delete();
-            const waitingMsg = await message.channel.send(
-              "⏳ Fetching from AO3...",
-            );
-            const urlResponse = await ao3Limiter.schedule(() =>
-              worksEmbed(url),
-            );
-            await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
+            await handleWorkUrl({
+              message,
+              url,
+              workCache,
+              ao3Limiter,
+              worksEmbed,
+              getWorkDetailsFromUrl,
+              isCachedWorkError,
+              authError,
+            });
+
+						// User selects chapter
           } else if (
             buttonInteraction.user.id === message.author.id &&
             buttonInteraction.customId === "chapter"

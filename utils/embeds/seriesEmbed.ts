@@ -1,6 +1,7 @@
 import { EmbedBuilder } from "discord.js";
 import dayjs from "dayjs";
 import { getSeries } from "@fujocoded/ao3.js";
+import { getSeriesIdFromUrl } from "../ao3Functions.ts"
 import { getUserProfileUrl } from "@fujocoded/ao3.js/urls";
 import localizedFormat from "dayjs/plugin/localizedFormat.js";
 import { stripIndents } from "common-tags";
@@ -9,10 +10,7 @@ import { stripIndents } from "common-tags";
 dayjs.extend(localizedFormat);
 
 export var seriesEmbed = async (seriesURL: string) => {
-  const seriesId = seriesURL
-    .replaceAll("https://", "")
-    .replaceAll("http://", "")
-    .split("/")[2];
+	const seriesId = getSeriesIdFromUrl(seriesURL);
   const series = await getSeries({ seriesId: seriesId });
 
   let seriesAuthors;
