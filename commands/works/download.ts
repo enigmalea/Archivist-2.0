@@ -6,7 +6,7 @@ import {
 import { ao3WorkError, authError } from "../../utils/errors.ts";
 import { oneLine, stripIndents } from "common-tags";
 
-import { allAuthors } from "../../utils/works.ts";
+import { constructCreators } from "../../utils/creators.ts";
 import { getWork } from "@fujocoded/ao3.js";
 import {
   getWorkDetailsFromUrl,
@@ -65,7 +65,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     } else {
       // Gets the title for the work.
       let title = work.title;
-      let creators = await allAuthors(workURL);
+      let creators = constructCreators(work);
 
       /*
 			Defines the file type info from the file type option of the command

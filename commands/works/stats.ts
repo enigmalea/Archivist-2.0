@@ -3,23 +3,13 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
-import {
-  allAuthors,
-  chapterDisplay,
-  embedColor,
-  lastUpdated,
-  ratingIcon,
-  workStatus,
-} from "../../utils/works.ts";
 import { ao3WorkError, authError } from "../../utils/errors.ts";
+import { chapterDisplay, formatCompletionStatus, publishedDate, updatedAt } from "../../utils/statuses.ts";
+import { embedColor, ratingIcon } from "../../utils/ratings.ts"
 
-import dayjs from "dayjs";
+import { constructCreators } from "../../utils/creators.ts";
 import { getWork } from "@fujocoded/ao3.js";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
-import localizedFormat from "dayjs/plugin/localizedFormat.js";
-
-// Extends dayjs to offer localized date formats.
-dayjs.extend(localizedFormat);
 
 export const data = new SlashCommandBuilder()
 
@@ -58,7 +48,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     } else {
       // Gets the stats for the work.
       let title = `Stats for ${work.title}`;
-      let publishedDate = dayjs(work.publishedAt).format("ll");
+      let published = publishedDate(work);
       let wordCount = work.words.toString();
       let hits = work.stats.hits.toString();
       let kudos = work.stats.kudos.toString();
@@ -66,12 +56,12 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       let comments = work.stats.comments.toString();
       let category = work.category!.join(", ");
 
-      let chapters = await chapterDisplay(workURL);
-      let updatedDate = await lastUpdated(workURL);
-      let status = await workStatus(workURL);
-      let rating = await ratingIcon(workURL);
-      let color = await embedColor(workURL);
-      let creators = await allAuthors(workURL);
+      let chapters = chapterDisplay(work);
+      let updatedDate = updatedAt(work);
+      let status = formatCompletionStatus(work);
+      let rating = ratingIcon(work);
+      let color = embedColor(work);
+      let creators = constructCreators(work);
 
       // TODO: add series and collections to description.
       let description = `by ${creators!}`;
@@ -91,11 +81,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
         .addFields({ name: "Language:", value: work.language, inline: true })
         .addFields({ name: "Category:", value: category, inline: true })
 
-        .addFields({
-          name: "Date Published:",
-          value: publishedDate,
-          inline: true,
-        })
+        .addFields({ name: "Date Published:", value: published, inline: true })
         .addFields({ name: "Date Updated:", value: updatedDate, inline: true })
         .addFields({ name: "Status:", value: status, inline: true })
 
