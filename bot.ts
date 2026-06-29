@@ -11,14 +11,13 @@ import {
   MessageFlags,
 } from "discord.js";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { getSeriesIdFromUrl, getUsernameFromUrl, handleWorkUrl } from "./utils/urls.ts"
 
 import Bottleneck from "bottleneck";
 import { authError } from "./utils/errors.ts";
 import { chapterEmbed } from "./utils/embeds/chapterEmbed.ts";
 import dotenv from "dotenv";
 import fs from "node:fs";
-import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
+import { handleAo3Url } from "./utils/urls.ts";
 import path from "node:path";
 import { seriesEmbed } from "./utils/embeds/seriesEmbed.ts";
 import { userEmbed } from "./utils/embeds/userEmbed.ts";
@@ -107,7 +106,8 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
 
   // Regex used to identify if AO3 links are in the message.
-  const ao3Links = /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
+  const ao3Links =
+    /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
 
   // Identifies if AO3 links are in message.
   if (ao3Links.test(message.content) === true) {
@@ -121,36 +121,33 @@ client.on(Events.MessageCreate, async (message) => {
     for (const url of urls) {
       // For works link that does not contain chapter information:
       if (url.includes("/works/") && !url.includes("/chapters/")) {
-				  await handleWorkUrl({
-						message,
-						url,
-						ao3Limiter,
-						worksEmbed,
-						authError,
-					});
-					return;
-				// For user links:
-			} else if (url.includes("/users/")) {
-				
-				
-        const waitingMsg = await message.channel.send(
-          "⏳ Fetching from AO3...",
-        );
-        const urlResponse = await ao3Limiter.schedule(() => userEmbed(url));
-        await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
-			
-				// For series url:
+        await handleAo3Url({
+          message,
+          url,
+          ao3Limiter,
+          embedFn: worksEmbed,
+          authError,
+        });
+        return;
+        // For user links:
+      } else if (url.includes("/users/")) {
+        await handleAo3Url({
+          message,
+          url,
+          ao3Limiter,
+          embedFn: userEmbed,
+        });
+        // For series url:
       } else if (url.includes("/series/")) {
-        const waitingMsg = await message.channel.send(
-          "⏳ Fetching from AO3...",
-        );
-        const urlResponse = await ao3Limiter.schedule(() => seriesEmbed(url));
-
-        await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
-
-				// For url with chapters in link:
+        await handleAo3Url({
+          message,
+          url,
+          ao3Limiter,
+          embedFn: seriesEmbed,
+        });
+        // For url with chapters in link:
       } else if (url.includes("/chapters/")) {
-				// ask user if they want a work or chapter embed;
+        // ask user if they want a work or chapter embed;
         const question = "Would you like a work or chapter embed?";
 
         const work = new ButtonBuilder()
@@ -178,44 +175,38 @@ client.on(Events.MessageCreate, async (message) => {
           time: 15_000,
         });
 
-				// Get the button interaction from user
+        // Get the button interaction from user
         collector.on("collect", async (buttonInteraction) => {
-
-					// User selects work
+          // User selects work
           if (
             buttonInteraction.user.id === message.author.id &&
             buttonInteraction.customId === "work"
           ) {
             botReply.delete();
-							await handleWorkUrl({
-								message,
-								url,
-								ao3Limiter,
-								worksEmbed,
-								authError,
-							});
-						return;
+            await handleAo3Url({
+              message,
+              url,
+              ao3Limiter,
+              embedFn: worksEmbed,
+              authError,
+            });
+            return;
 
-						// User selects chapter
+            // User selects chapter
           } else if (
             buttonInteraction.user.id === message.author.id &&
             buttonInteraction.customId === "chapter"
           ) {
             botReply.delete();
-            const waitingMsg = await message.channel.send(
-              "⏳ Fetching from AO3...",
-            );
+            await handleAo3Url({
+              message,
+              url,
+              ao3Limiter,
+              embedFn: chapterEmbed,
+              authError,
+            });
 
-            const urlResponse = await ao3Limiter.schedule(() => chapterEmbed(url));
-
-  					if ("locked" in urlResponse) {
-							await waitingMsg.edit(authError);
-							return;
-						}
-
-						await waitingMsg.edit({ content: "", embeds: [urlResponse] });
-
-						// Reply to non-OP using buttons.
+            // Reply to non-OP using buttons.
           } else {
             buttonInteraction.reply({
               content: `These buttons aren't for you!`,

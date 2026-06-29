@@ -23,27 +23,31 @@ export function getSeriesIdFromUrl(seriesURL: string): string {
   return extractPathnameGroup(seriesURL, /\/series\/(\d+)/i);
 }
 
-// Used by bots to handle incoming works URLs
-export async function handleWorkUrl({
+// Used by bots to handle incoming URLs
+// Generic handler for fetching + posting an AO3 embed, used for works,
+// series, and user links. Optionally checks for a locked work via
+// onLocked — series/users never lock, so they simply omit it.
+export async function handleAo3Url({
   message,
   url,
   ao3Limiter,
-  worksEmbed,
+  embedFn,
   authError,
 }: {
   message: any;
   url: string;
   ao3Limiter: any;
-  worksEmbed: (url: string) => Promise<any>;
-  authError: any;
+  embedFn: (url: string) => Promise<any>;
+  authError?: any;
 }): Promise<void> {
   const waitingMsg = await message.channel.send("⏳ Fetching from AO3...");
 
-  const urlResponse = await ao3Limiter.schedule(() => worksEmbed(url));
+  const urlResponse = await ao3Limiter.schedule(() => embedFn(url));
 
-  if (urlResponse.locked) {
+  if (authError && "locked" in urlResponse) {
     await waitingMsg.edit(authError);
     return;
   }
+
   await waitingMsg.edit({ content: "", embeds: [urlResponse] });
 }
