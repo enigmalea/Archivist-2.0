@@ -4,6 +4,7 @@ import { formatCharacters, formatFandoms, formatRelationships, formatTags, forma
 import { formatWorkSeries, formatWorkSummary } from "../../utils/details.ts";
 
 import { EmbedBuilder } from "discord.js";
+import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetWork } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
@@ -43,13 +44,7 @@ export var worksEmbed = async (workURL: string) => {
     const description = `by ${creators!}\n${series!}`;
 
     // * Constructs embed to send to Discord.
-    const worksEmbed = new EmbedBuilder()
-      .setColor(color)
-      .setAuthor({
-        name: "Archive of Our Own",
-        iconURL: "https://i.imgur.com/Ml4X1T6.png",
-        url: "https://archiveofourown.org",
-      })
+    const worksEmbed = ao3Embed(color)
       .setTitle(work.title)
       .setURL(workURL)
       .setDescription(description)
@@ -70,12 +65,7 @@ export var worksEmbed = async (workURL: string) => {
 			.addFields({ name: "Characters:", value: characters, inline: false })
 
 			.addFields({ name: "Additional Tags:", value: tags, inline: false })
-      .addFields({ name: "Summary:", value: summary!, inline: false })
-
-      .setTimestamp()
-      .setFooter({
-        text: "bot not affiliated with OTW or AO3",
-      });
+      .addFields({ name: "Summary:", value: summary!, inline: false });
 
     return worksEmbed;
   }

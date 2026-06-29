@@ -4,6 +4,7 @@ import { embedColor, ratingIcon } from "../ratings.ts";
 import { getWorkDetailsFromUrl, getWorkUrl } from "@fujocoded/ao3.js/urls";
 
 import { EmbedBuilder } from "discord.js";
+import { ao3Embed } from "../baseEmbed.ts";
 import { constructCreators } from "../creators.ts";
 import { countChapterWords } from "../words.ts";
 import { formatWarnings } from "../tags.ts";
@@ -48,13 +49,7 @@ export var chapterEmbed = async (workURL: string) => {
 		${series!}`;
 
     // * Constructs embed to send to Discord.
-    const worksEmbed = new EmbedBuilder()
-      .setColor(color)
-      .setAuthor({
-        name: "Archive of Our Own",
-        iconURL: "https://i.imgur.com/Ml4X1T6.png",
-        url: "https://archiveofourown.org",
-      })
+    const worksEmbed = ao3Embed(color)
       .setTitle(work.title)
       .setURL(readFromBeginningUrl)
       .setDescription(description)
@@ -71,12 +66,6 @@ export var chapterEmbed = async (workURL: string) => {
       .addFields({ name: "Warnings:", value: warnings, inline: false })
 
       .addFields({ name: "Summary:", value: chapterSummary, inline: false })
-
-      .setTimestamp()
-      .setFooter({
-        text: "bot not affiliated with OTW or AO3",
-      });
-
     return worksEmbed;
   }
 };

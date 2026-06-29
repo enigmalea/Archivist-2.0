@@ -4,11 +4,11 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 
+import { ao3Embed } from "../../utils/baseEmbed.ts";
 import { ao3SeriesError } from "../../utils/errors.ts";
 import { cachedGetSeries } from "../../utils/cache.ts";
 import { constructCreators } from "../../utils/creators.ts";
 import { getSeriesIdFromUrl } from "../../utils/urls.ts";
-import { getUserProfileUrl } from "@fujocoded/ao3.js/urls";
 
 export const data = new SlashCommandBuilder()
 
@@ -60,20 +60,10 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 		let description = "by " + seriesAuthors + "\n\n" + seriesWorks
 
     // * Constructs embed to send to Discord.
-    const listEmbed = new EmbedBuilder()
+    const listEmbed = ao3Embed()
       .setTitle(title)
       .setURL(seriesURL)
-      .setColor(0x2f3136)
-      .setAuthor({
-        name: "Archive of Our Own",
-        iconURL: "https://i.imgur.com/Ml4X1T6.png",
-        url: "https://archiveofourown.org",
-      })
-      .setDescription(description)
-      .setTimestamp()
-      .setFooter({
-        text: `bot not affiliated with OTW or AO3`,
-      });
+      .setDescription(description);
 
     // * Sends reply to Discord.
     await interaction.editReply({ embeds: [listEmbed] });
