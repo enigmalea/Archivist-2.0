@@ -3,10 +3,16 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const manager = new ShardingManager("./dist/bot.js", {
-  token: process.env.TOKEN,
-});
+const token = process.env.TOKEN;
+if (!token) {
+  throw new Error("Missing TOKEN environment variable");
+}
+
+const manager = new ShardingManager("./dist/bot.js", { token });
 
 manager.on("shardCreate", (shard) => console.log(`Launched shard ${shard.id}`));
 
-manager.spawn();
+manager.spawn().catch((error) => {
+  console.error("Failed to spawn shards:", error);
+  process.exit(1);
+});

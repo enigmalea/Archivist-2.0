@@ -48,7 +48,7 @@ const rest = new REST().setToken(process.env.TOKEN);
 
     const data = await rest.put(
       Routes.applicationCommands(
-        process.env.CLIENT_ID
+        process.env.CLIENT_ID_TEST
       ),
       { body: commands },
     );
