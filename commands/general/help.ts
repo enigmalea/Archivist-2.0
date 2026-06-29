@@ -12,7 +12,10 @@ import type { ClientWithCommands } from "../../bot.ts";
 
 const WEBSITE_URL = "https://www.archivistbot.com";
 const SUPPORT_SERVER_URL = "https://discord.gg/FzhC9bVFva";
-const CLIENT_ID = process.env.CLIENT_ID || "YOUR_CLIENT_ID";
+const CLIENT_ID = process.env.CLIENT_ID_PROD;
+if (!CLIENT_ID) {
+  throw new Error("Missing CLIENT_ID environment variable");
+}
 const INVITE_URL = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&scope=bot%20applications.commands&permissions=395137`;
 const COMMANDS_PER_PAGE = 4;
 
@@ -39,11 +42,12 @@ type HelpEntry = {
   details: string[];
 };
 
+// Create help command.
 export const data = new SlashCommandBuilder()
   .setName("help")
   .setDescription("Show command help and useful links");
 
-// Builds the full, sorted list of help entries from every loaded command.
+// Builds the full, sorted list of help entries from every cached command.
 let cachedEntries: HelpEntry[] | null = null;
 
 // Builds the full, sorted list of help entries from every loaded command.
@@ -75,19 +79,19 @@ export function invalidateHelpCache(): void {
 function collectSubcommandLines(command: CommandJson): string[] {
   const lines: string[] = [];
 
-  for (const option of command.options || []) {
+  for (const option of command.options ?? []) {
     if (option.type === 1) {
       lines.push(
-        `• \`/${command.name} ${option.name}\` — ${option.description || "No description."}`,
+        `• \`/${command.name} ${option.name}\` — ${option.description ?? "No description."}`,
       );
       continue;
     }
 
     if (option.type === 2) {
-      for (const subcommand of option.options || []) {
+      for (const subcommand of option.options ?? []) {
         if (subcommand.type === 1) {
           lines.push(
-            `• \`/${command.name} ${option.name} ${subcommand.name}\` — ${subcommand.description || "No description."}`,
+            `• \`/${command.name} ${option.name} ${subcommand.name}\` — ${subcommand.description ?? "No description."}`,
           );
         }
       }
@@ -109,7 +113,7 @@ function buildHelpEmbed(
 ): { embed: EmbedBuilder; page: number; pageCount: number } {
   const entries = getHelpEntries(client);
   const pageCount = getPageCount(entries);
-  // Clamp the requested page so it can never go below 0 or past the last page.
+	// Clamp the requested page so it can never go below 0 or past the last page.
   const page = Math.min(Math.max(requestedPage, 0), pageCount - 1);
   const start = page * COMMANDS_PER_PAGE;
   const pageEntries = entries.slice(start, start + COMMANDS_PER_PAGE);
@@ -122,7 +126,7 @@ function buildHelpEmbed(
         `🌐 [Website](${WEBSITE_URL})`,
         `✨ [Join the Support Server](${SUPPORT_SERVER_URL})`,
         `🤖 [Add Archie to your Server](${INVITE_URL})`,
-        "",
+				""
       ].join("\n"),
     )
     .setFooter({
@@ -130,18 +134,17 @@ function buildHelpEmbed(
       iconURL: client.user?.displayAvatarURL(),
     });
 
-  for (const entry of pageEntries) {
-    embed.addFields({
+  embed.addFields(
+    ...pageEntries.map((entry) => ({
       name: `/${entry.name}`,
       value:
         [entry.description, ...entry.details].filter(Boolean).join("\n") ||
         "No description available.",
-    });
-  }
+    })),
+  );
 
   return { embed, page, pageCount };
 }
-
 // Builds the "Previous"/"Next" buttons. The owner's user ID and target page are
 // encoded into each button's customId (e.g. "help:123456:2") so we know who the
 // panel belongs to and which page to show next, without storing any extra state.
@@ -171,7 +174,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   await interaction.reply({
     embeds: [embed],
     components: buildHelpComponents(interaction.user.id, page, pageCount),
-    flags: 64,
+    ephemeral: true,
   });
 };
 
@@ -182,9 +185,7 @@ export const handleHelpButtonInteraction = async (
   interaction: ButtonInteraction,
 ) => {
   const parts = interaction.customId.split(":");
-  if (parts[0] !== "help") {
-    return false;
-  }
+  if (parts[0] !== "help") return false;
 
   // Only the person who ran /help is allowed to flip through their own pages.
   const [, ownerId, pageText] = parts;
@@ -192,7 +193,7 @@ export const handleHelpButtonInteraction = async (
     await interaction.reply({
       content:
         "This help panel belongs to someone else. Run `/help` for your own copy.",
-      flags: 64,
+      ephemeral: true,
     });
     return true;
   }
@@ -201,10 +202,11 @@ export const handleHelpButtonInteraction = async (
   const client = interaction.client as ClientWithCommands;
   const { embed, page: safePage, pageCount } = buildHelpEmbed(client, page);
 
-  // Edit the existing message in place instead of sending a new reply.
+	// Edit the existing message in place instead of sending a new reply.
   await interaction.update({
     embeds: [embed],
     components: buildHelpComponents(ownerId, safePage, pageCount),
   });
+
   return true;
 };

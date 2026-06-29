@@ -7,10 +7,10 @@ export const data = new SlashCommandBuilder()
 export const execute = async (interaction: ChatInputCommandInteraction) => {
   const sent = await interaction.reply({
     content: "Pinging...",
+    fetchReply: true,
   });
-  interaction.editReply(
-    `Pong! Roundtrip latency: ${
-      sent.createdTimestamp - interaction.createdTimestamp
-    }ms`
-  );
+
+  const latency = sent.createdTimestamp - interaction.createdTimestamp;
+
+  await interaction.editReply(`Pong! Roundtrip latency: ${latency}ms`);
 };
