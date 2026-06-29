@@ -6,11 +6,12 @@ import {
 import { ao3WorkError, authError } from "../../utils/errors.ts";
 import { oneLine, stripIndents } from "common-tags";
 
+import { ao3Embed } from "../../utils/baseEmbed.ts";
+import { cachedGetWork } from "../../utils/cache.ts"
 import { constructCreators } from "../../utils/creators.ts";
 import {
   getWorkDetailsFromUrl,
 } from "@fujocoded/ao3.js/urls";
-import { cachedGetWork } from "../../utils/cache.ts"
 
 export const data = new SlashCommandBuilder()
 
@@ -97,20 +98,10 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 		☆ DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! ☆`;
 
       // * Constructs embed to send to Discord.
-      const downloadEmbed = new EmbedBuilder()
+      const downloadEmbed = ao3Embed()
         .setTitle(title)
         .setURL(workURL)
-        .setColor(0x2f3136)
-        .setAuthor({
-          name: "Archive of Our Own",
-          iconURL: "https://i.imgur.com/Ml4X1T6.png",
-          url: "https://archiveofourown.org",
-        })
-        .setDescription(description)
-        .setTimestamp()
-        .setFooter({
-          text: `bot not affiliated with OTW or AO3`,
-        });
+        .setDescription(description);
 
       // * Sends reply to Discord.
       await interaction.editReply({ embeds: [downloadEmbed] });

@@ -1,6 +1,7 @@
 import { formatCompletionStatus, startedDate, updatedAt } from "../statuses.ts";
 
 import { EmbedBuilder } from "discord.js";
+import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetSeries } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
 import { getSeriesIdFromUrl } from "../urls.ts"
@@ -41,14 +42,7 @@ export var seriesEmbed = async (seriesURL: string) => {
 	**Total Word Count:** ${series.words}
 	**Bookmarks:** ${series.bookmarks}`;
 
-  const seriesEmbed = new EmbedBuilder()
-    .setColor(0x2f3136)
-    .setAuthor({
-      name: "Archive of Our Own",
-      iconURL: "https://i.imgur.com/Ml4X1T6.png",
-      url: "https://archiveofourown.org",
-    })
-
+  const seriesEmbed = ao3Embed()
     .setTitle(series.name)
     .setURL(seriesURL)
     .setDescription(description)
@@ -70,11 +64,6 @@ export var seriesEmbed = async (seriesURL: string) => {
       name: "Description:",
       value: seriesDescription,
       inline: false,
-    })
-
-    .setTimestamp()
-    .setFooter({
-      text: "bot not affiliated with OTW or AO3",
     });
 
   return seriesEmbed;

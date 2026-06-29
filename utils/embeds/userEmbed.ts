@@ -1,13 +1,12 @@
 import { EmbedBuilder } from "discord.js";
+import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetUser } from "../cache.ts";
+import { getUsernameFromUrl } from "../urls.ts";
 import { stripIndents } from "common-tags";
 
 export var userEmbed = async (userURL: string) => {
-  const username = userURL
-    .replaceAll("https://", "")
-    .replaceAll("http://", "")
-    .split("/")[2];
-  const user = await cachedGetUser(username );
+  const username = getUsernameFromUrl(userURL)
+  const user = await cachedGetUser(username);
 	
   let header;
   switch (user.header) {
@@ -41,22 +40,10 @@ export var userEmbed = async (userURL: string) => {
 	**Bio:**
 	${header}${bio}`;
 
-  const userEmbed = new EmbedBuilder()
-    .setColor(0x2f3136)
-    .setAuthor({
-      name: "Archive of Our Own",
-      iconURL: "https://i.imgur.com/Ml4X1T6.png",
-      url: "https://archiveofourown.org",
-    })
+  const userEmbed = ao3Embed()
     .setTitle(username)
     .setURL(userURL)
     .setDescription(description)
-    .setThumbnail(user.icon)
-
-    .setTimestamp()
-    .setFooter({
-      text: "bot not affiliated with OTW or AO3",
-    });
-
+    .setThumbnail(user.icon);
   return userEmbed;
 };
