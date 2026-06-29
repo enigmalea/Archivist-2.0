@@ -1,27 +1,33 @@
+import { cachedGetWorkChapter, cachedGetWorkContent } from "../cache.ts";
 import { chapterDisplay, formatCompletionStatus, publishedDate, updatedAt } from "../statuses.ts";
 import { embedColor, ratingIcon } from "../ratings.ts";
-import { formatWorkSeries, formatWorkSummary } from "../../utils/details.ts";
+import { getWorkDetailsFromUrl, getWorkUrl } from "@fujocoded/ao3.js/urls";
 
 import { EmbedBuilder } from "discord.js";
-import { cachedGetWork } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
-import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
-import { shipCategories } from "../tags.ts";
+import { countChapterWords } from "../words.ts";
+import { formatWarnings } from "../tags.ts";
+import { formatWorkSeries } from "../../utils/details.ts";
+import { stripIndents } from "common-tags";
 
 export var chapterEmbed = async (workURL: string) => {
-  const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
-  const work = await cachedGetWork( workId );
+  const { workId, chapterId } = getWorkDetailsFromUrl({ url: workURL });
+  const work = await cachedGetWorkChapter( workId, chapterId );
 
   if (work.locked) {
     return work;
   } else {
+		const content = await cachedGetWorkContent(workId, chapterId);
+
     // Creates the variables for the embed.
     const color = embedColor(work);
 
     const creators = constructCreators(work.authors, work.authors?.[0]?.anonymous);
     const series = formatWorkSeries(work);
 
-    const wordCount = work.words.toString();
+    const chapterWords = countChapterWords(content.content);
+		const totalWords = work.words.toString();
+		const wordCount = `**${chapterWords}** [${totalWords}]`;
     const chapters = chapterDisplay(work);
 
     const published = publishedDate(work);
@@ -29,13 +35,17 @@ export var chapterEmbed = async (workURL: string) => {
     const status = formatCompletionStatus(work);
 
     const rating = ratingIcon(work);
-    const warnings = work.tags.warnings.join(", ");
-    const category = shipCategories(work);
+    const warnings = formatWarnings(work);
 
-    const summary = formatWorkSummary(work);
+		const chapterName = work.chapterInfo?.name ?? `Chapter ${work.chapterInfo?.index ?? ""}`;
+  	const chapterSummary = work.chapterInfo?.summary?.trim() || "*This chapter does not have a summary.*";
 
-    // TODO: add series and collections to description.
-    const description = `by ${creators!}\n${series!}`;
+		const readFromBeginningUrl = getWorkUrl({ workId });
+
+    // TODO: add collections to description.
+    const description = stripIndents`## [${chapterName}](${workURL})
+		by ${creators!}
+		${series!}`;
 
     // * Constructs embed to send to Discord.
     const worksEmbed = new EmbedBuilder()
@@ -46,21 +56,21 @@ export var chapterEmbed = async (workURL: string) => {
         url: "https://archiveofourown.org",
       })
       .setTitle(work.title)
-      .setURL(workURL)
+      .setURL(readFromBeginningUrl)
       .setDescription(description)
       .addFields({ name: "Words:", value: wordCount, inline: true })
       .addFields({ name: "Chapters:", value: chapters, inline: true })
-      .addFields({ name: "Language:", value: work.language, inline: true })
+			.addFields({ name: "Rating:", value: rating!, inline: true })
 
-      .addFields({ name: "Date Published:", value: published, inline: true })
+      .addFields({ name: "Published:", value: published, inline: true })
       .addFields({ name: "Updated:", value: updatedDate, inline: true })
       .addFields({ name: "Status:", value: status, inline: true })
 
-      .addFields({ name: "Rating:", value: rating!, inline: true })
-      .addFields({ name: "Warnings:", value: warnings, inline: true })
-      .addFields({ name: "Category:", value: category, inline: true })
+      
 
-      .addFields({ name: "Summary:", value: summary!, inline: false })
+      .addFields({ name: "Warnings:", value: warnings, inline: false })
+
+      .addFields({ name: "Summary:", value: chapterSummary, inline: false })
 
       .setTimestamp()
       .setFooter({
