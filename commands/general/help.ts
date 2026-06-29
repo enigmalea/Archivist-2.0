@@ -1,6 +1,5 @@
 import {
   ActionRowBuilder,
-  BaseInteraction,
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
@@ -8,6 +7,7 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
+
 import type { ClientWithCommands } from "../../bot.ts";
 
 const WEBSITE_URL = "https://www.archivistbot.com";
@@ -44,8 +44,16 @@ export const data = new SlashCommandBuilder()
   .setDescription("Show command help and useful links");
 
 // Builds the full, sorted list of help entries from every loaded command.
+let cachedEntries: HelpEntry[] | null = null;
+
+// Builds the full, sorted list of help entries from every loaded command.
+// Cached after the first call since the command list doesn't change at
+// runtime — unless commands get hot-reloaded, in which case call
+// invalidateHelpCache() to force a rebuild on the next /help.
 function getHelpEntries(client: ClientWithCommands): HelpEntry[] {
-  return Array.from(client.commands.values())
+  if (cachedEntries) return cachedEntries;
+
+  cachedEntries = Array.from(client.commands.values())
     .map((command) => (command as any).data.toJSON() as CommandJson)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((command) => ({
@@ -53,6 +61,13 @@ function getHelpEntries(client: ClientWithCommands): HelpEntry[] {
       description: command.description,
       details: collectSubcommandLines(command),
     }));
+
+  return cachedEntries;
+}
+
+// Call this after hot-reloading commands so the next /help rebuilds fresh.
+export function invalidateHelpCache(): void {
+  cachedEntries = null;
 }
 
 // Turns a command's subcommands/subcommand groups into readable "/command sub" lines.

@@ -5,8 +5,10 @@ import {
 } from "discord.js";
 
 import { ao3SeriesError } from "../../utils/errors.ts";
+import { cachedGetSeries } from "../../utils/cache.ts";
+import { constructCreators } from "../../utils/creators.ts";
+import { getSeriesIdFromUrl } from "../../utils/urls.ts";
 import { getUserProfileUrl } from "@fujocoded/ao3.js/urls";
-import { cachedGetSeries } from "../../utils/cache.ts"
 
 export const data = new SlashCommandBuilder()
 
@@ -36,51 +38,22 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     await interaction.deferReply();
 
     // Now that we are certain this is a work link, assigns variables to identify the work.
-    const seriesId = seriesURL
-      .replaceAll("https://", "")
-      .replaceAll("http://", "")
-      .split("/")[2];
+    const seriesId = getSeriesIdFromUrl(seriesURL);
     const series = await cachedGetSeries(seriesId);
 
     // Gets the name for the series.
     let title = series.name;
 
     // Creates a list of creators.
-    let seriesAuthors;
-    switch (series.authors[0].anonymous) {
-      case true:
-        seriesAuthors = "Anonymous";
-        break;
-
-      // Default for the switch case assumes authors are not anonymous.
-      default:
-        // Constructs variables which are accessible outside of the loop.
-        let authorsArray: string[] = [];
-        // For each author in the array, we define their display name (pseud), username (actual AO3 username), and their url.
-        for (let i in series.authors) {
-          const display = series.authors[i].pseud;
-          const url = getUserProfileUrl({ username: series.authors[i].username });
-
-          // Construct a new array consisting of a markdown formatted masked link of their display name and url.
-          const author = `[${display}](${url})`;
-          authorsArray.push(author);
-        }
-
-        // Join the array of markdown links with commas to create a string for display.
-        seriesAuthors = authorsArray.join(", ");
-        break;
-    }
+    const seriesAuthors = constructCreators(series.authors, series.authors?.[0]?.anonymous);
 
 		// Constructs an array of series works.
-		let allWorks = [];
-		for (let i in series.works) {
-			const title = series.works[i].title;
-			const url = series.works[i].url;
-			const count = series.works.indexOf(series.works[i]) + 1;
-			const link = `${count}. [${title}](${url})`;
-
+		let allWorks: string[] = [];
+		series.works.forEach((work, i) => {
+			const count = i + 1;
+			const link = `${count}. [${work.title}](${work.url})`;
 			allWorks.push(link);
-		}
+		});
 
 		let seriesWorks = allWorks.join("\n");
 
