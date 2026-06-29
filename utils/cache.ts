@@ -1,95 +1,100 @@
 import { getSeries, getUser, getWork, getWorkContent } from "@fujocoded/ao3.js";
 
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+type CacheKey = string | number;
+
 interface CacheEntry<T> {
   data: T;
   expiresAt: number;
 }
 
+type WorkData = Awaited<ReturnType<typeof getWork>>;
+type SeriesData = Awaited<ReturnType<typeof getSeries>>;
+type UserData = Awaited<ReturnType<typeof getUser>>;
+type WorkContentData = Awaited<ReturnType<typeof getWorkContent>>;
+
 class Cache<T> {
-  private store = new Map<string | number, CacheEntry<T>>();
-  private ttl: number;
+  private readonly store = new Map<CacheKey, CacheEntry<T>>();
+  private readonly inFlight = new Map<CacheKey, Promise<T>>();
 
-  constructor(ttlMs: number = 60 * 60 * 1000) {
-    this.ttl = ttlMs;
+  constructor(private readonly ttlMs: number = HOUR_MS) {}
+
+  set(key: CacheKey, value: T): void {
+    this.store.set(key, {
+      data: value,
+      expiresAt: Date.now() + this.ttlMs,
+    });
   }
 
-  set(key: string | number, value: T): void {
-    this.store.set(key, { data: value, expiresAt: Date.now() + this.ttl });
-  }
-
-  get(key: string | number): T | null {
+  get(key: CacheKey): T | null {
     const entry = this.store.get(key);
     if (!entry) return null;
+
     if (Date.now() > entry.expiresAt) {
       this.store.delete(key);
       return null;
     }
+
     return entry.data;
+  }
+
+  async getOrSet(key: CacheKey, loader: () => Promise<T>): Promise<T> {
+    const cached = this.get(key);
+    if (cached !== null) return cached;
+
+    const pending = this.inFlight.get(key);
+    if (pending) return pending;
+
+    const promise = (async () => {
+      try {
+        const value = await loader();
+        this.set(key, value);
+        return value;
+      } finally {
+        this.inFlight.delete(key);
+      }
+    })();
+
+    this.inFlight.set(key, promise);
+    return promise;
   }
 
   clear(): void {
     this.store.clear();
+    this.inFlight.clear();
   }
 }
 
-// Raw AO3 API responses — NOT embeds. Shared by every command/embed builder
-// that needs the same workId/seriesId/username, regardless of what they
-// render it as.
-export const workCache = new Cache<Awaited<ReturnType<typeof getWork>>>(60 * 60 * 1000);
-export const seriesCache = new Cache<Awaited<ReturnType<typeof getSeries>>>(60 * 60 * 1000);
-export const workChapterCache = new Cache<Awaited<ReturnType<typeof getWork>>>(60 * 60 * 1000);
-export const workContentCache = new Cache<Awaited<ReturnType<typeof getWorkContent>>>(60 * 60 * 1000);
-export const userCache = new Cache<Awaited<ReturnType<typeof getUser>>>(24 * 60 * 60 * 1000);
+export const workCache = new Cache<WorkData>(HOUR_MS);
+export const seriesCache = new Cache<SeriesData>(HOUR_MS);
+export const workChapterCache = new Cache<WorkData>(HOUR_MS);
+export const workContentCache = new Cache<WorkContentData>(HOUR_MS);
+export const userCache = new Cache<UserData>(DAY_MS);
 
-// Single entry point for fetching each resource. Every consumer calls these
-// instead of getWork/getSeries/getUser directly.
-export async function cachedGetWork(workId: string | number) {
-  const cached = workCache.get(workId);
-  if (cached) return cached;
-
-  const work = await getWork({ workId });
-  workCache.set(workId, work);
-  return work;
+export async function cachedGetWork(workId: CacheKey) {
+  return workCache.getOrSet(workId, () => getWork({ workId }));
 }
 
-export async function cachedGetSeries(seriesId: string | number) {
-  const cached = seriesCache.get(seriesId);
-  if (cached) return cached;
-
-  const series = await getSeries({ seriesId });
-  seriesCache.set(seriesId, series);
-  return series;
+export async function cachedGetSeries(seriesId: CacheKey) {
+  return seriesCache.getOrSet(seriesId, () => getSeries({ seriesId }));
 }
 
 export async function cachedGetUser(username: string) {
-  const cached = userCache.get(username);
-  if (cached) return cached;
-
-  const user = await getUser({ username });
-  userCache.set(username, user);
-  return user;
+  return userCache.getOrSet(username, () => getUser({ username }));
 }
 
-function chapterCacheKey(workId: string | number, chapterId: string | number | null | undefined): string {
+function chapterCacheKey(workId: CacheKey, chapterId?: number | string | null): string {
   return `${workId}:${chapterId ?? "default"}`;
 }
 
-export async function cachedGetWorkChapter(workId: string | number, chapterId: number | undefined) {
+export async function cachedGetWorkChapter(workId: CacheKey, chapterId?: number) {
   const key = chapterCacheKey(workId, chapterId);
-  const cached = workChapterCache.get(key);
-  if (cached) return cached;
-
-  const work = await getWork({ workId, chapterId });
-  workChapterCache.set(key, work);
-  return work;
+  return workChapterCache.getOrSet(key, () => getWork({ workId, chapterId }));
 }
 
-export async function cachedGetWorkContent(workId: string | number, chapterId: number | undefined) {
+export async function cachedGetWorkContent(workId: CacheKey, chapterId?: number) {
   const key = chapterCacheKey(workId, chapterId);
-  const cached = workContentCache.get(key);
-  if (cached) return cached;
-
-  const content = await getWorkContent({ workId, chapterId });
-  workContentCache.set(key, content);
-  return content;
+  return workContentCache.getOrSet(key, () => getWorkContent({ workId, chapterId }));
 }

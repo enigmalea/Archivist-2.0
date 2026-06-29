@@ -8,16 +8,16 @@ type CreatorLike = {
 };
 
 type CreatorContainer =
+  | CreatorLike[]
   | {
       anonymous?: boolean;
       authors?: CreatorLike[];
       creators?: CreatorLike[];
-    }
-  | CreatorLike[];
+    };
 
 export function constructCreators(
   source: CreatorContainer | undefined,
-  anonymous?: boolean
+  anonymous?: boolean,
 ): string {
   const creators = Array.isArray(source)
     ? source
@@ -26,24 +26,17 @@ export function constructCreators(
   const isAnonymous =
     anonymous ?? (Array.isArray(source) ? false : source?.anonymous ?? false);
 
-  if (isAnonymous) {
-    return "Anonymous";
-  }
-
-  if (!creators.length) {
-    return "";
-  }
+  if (isAnonymous) return "Anonymous";
+  if (!creators.length) return "";
 
   return creators
     .map((creator) => {
-      const display = creator.pseud ?? creator.name ?? "Anonymous";
-      const username = creator.username;
+      const display =
+        creator.pseud ?? creator.name ?? creator.username ?? "Anonymous";
 
-      if (!username) {
-        return display;
-      }
-
-      return `[${display}](${getUserProfileUrl({ username })})`;
+      return creator.username
+        ? `[${display}](${getUserProfileUrl({ username: creator.username })})`
+        : display;
     })
     .join(", ");
 }

@@ -1,26 +1,20 @@
 import {
   ChatInputCommandInteraction,
-  EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
 import { ao3WorkError, authError } from "../../utils/errors.ts";
-import { oneLine, stripIndents } from "common-tags";
+import { getDownloadUrls, getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 
 import { ao3Embed } from "../../utils/baseEmbed.ts";
-import { cachedGetWork } from "../../utils/cache.ts"
+import { cachedGetWork } from "../../utils/cache.ts";
 import { constructCreators } from "../../utils/creators.ts";
-import {
-  getWorkDetailsFromUrl,
-} from "@fujocoded/ao3.js/urls";
+import { stripIndents } from "common-tags";
 
 export const data = new SlashCommandBuilder()
-
-  // Creates the download command and sets the options
   .setName("download")
   .setDescription(
     "Provides a link so you can download a work with a specific format from AO3."
   )
-  // Adds a required option for the file type.
   .addStringOption((option) =>
     option
       .setName("filetype")
@@ -34,7 +28,6 @@ export const data = new SlashCommandBuilder()
         { name: "PDF", value: "pdf" }
       )
   )
-  // Adds a required option to provide the url.
   .addStringOption((option) =>
     option
       .setName("url")
@@ -43,68 +36,66 @@ export const data = new SlashCommandBuilder()
   );
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
-	// Defer for long-running operation
-	await interaction.deferReply();
+  // validate early to avoid deferring when input is invalid
+  const workURL = interaction.options.getString("url", true);
 
-  // Assigns a variable to the url provided.
-  const workURL = interaction.options.getString("url")!;
+  const isWorkUrl =
+    workURL.includes("archiveofourown.org/works/") ||
+    workURL.includes("ao3.org/works/");
 
-  if (
-    // ! Tests if the url provided is an ao3 work URL and if not, produces an error message.
-    workURL?.includes("archiveofourown.org/works/") === false &&
-    workURL?.includes("ao3.org/works/") === false
-  ) {
+  if (!isWorkUrl) {
     await interaction.reply(ao3WorkError);
-  } else {
-    // Now that we are certain this is a work link, assigns variables to identify the work.
-    const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
-    const work = await cachedGetWork(workId);
-
-    if (work.locked) {
-      // ! Tests to see if the work is locked. If so, returns an error message.
-      await interaction.reply(authError);
-    } else {
-      // Gets the title for the work.
-      let title = work.title;
-      let creators = constructCreators(work);
-
-      /*
-			Defines the file type info from the file type option of the command
-			and sets variables to call later based on the user's input.  
-			*/
-      type fileType = "azw3" | "epub" | "html" | "mobi" | "pdf";
-      let file = interaction.options.getString("filetype")! as fileType;
-
-      const emoji = {
-        azw3: "<:azw3:848005536283885579>",
-        epub: "<:epub:848005536241680434>",
-        html: "<:html:848005536347455498>",
-        mobi: "<:mobi:848005536493600768>",
-        pdf: "<:pdf:848005536552976444>",
-      };
-
-      // Constructs the proper download link for the work.
-      let download = oneLine`https://ao3.org/downloads/${workId}/${encodeURI(
-        title.replaceAll(".", "")
-      )}.${file}`;
-
-      // creates the description for the discord embed.
-      const description = stripIndents`by ${creators}
-		
-		*Click the link below to download the **${file}** file you requested.*
-
-		${emoji[file]} [**Download**](${download})
-		
-		☆ DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! ☆`;
-
-      // * Constructs embed to send to Discord.
-      const downloadEmbed = ao3Embed()
-        .setTitle(title)
-        .setURL(workURL)
-        .setDescription(description);
-
-      // * Sends reply to Discord.
-      await interaction.editReply({ embeds: [downloadEmbed] });
-    }
+    return;
   }
+
+  await interaction.deferReply();
+
+  const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
+  const work = await cachedGetWork(workId);
+
+  if (work.locked) {
+    await interaction.editReply(authError);
+    return;
+  }
+
+  const title = work.title;
+  const creators = constructCreators(work);
+
+  type FileType = "azw3" | "epub" | "html" | "mobi" | "pdf";
+  const file = interaction.options.getString("filetype", true) as FileType;
+
+  const urls = getDownloadUrls(work);
+
+  const FILE_TYPE: Record<FileType, { url?: string; icon: string }> = {
+    azw3: { url: urls.azw3, icon: "<:azw3:848005536283885579>" },
+    epub: { url: urls.epub, icon: "<:epub:848005536241680434>" },
+    html: { url: urls.html, icon: "<:html:848005536347455498>" },
+    mobi: { url: urls.mobi, icon: "<:mobi:848005536493600768>" },
+    pdf: { url: urls.pdf, icon: "<:pdf:848005536552976444>" },
+  };
+
+  const downloadLink = FILE_TYPE[file]?.url;
+  const fileIcon = FILE_TYPE[file]?.icon ?? "";
+
+  if (!downloadLink) {
+    await interaction.editReply({
+      content: "Sorry — that format is not available for this work.",
+    });
+    return;
+  }
+
+  const description = stripIndents`by ${creators}
+
+    *Click the link below to download the **${file.toUpperCase()}** file you requested.*
+
+    ${fileIcon} [**Download**](${downloadLink})
+
+    ☆ DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! ☆`;
+
+  const downloadEmbed = ao3Embed()
+    .setTitle(title)
+    .setURL(workURL)
+    .setDescription(description);
+
+  await interaction.editReply({ embeds: [downloadEmbed] });
 };

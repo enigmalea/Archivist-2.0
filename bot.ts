@@ -2,6 +2,7 @@ import {
   ActionRowBuilder,
   BaseInteraction,
   ButtonBuilder,
+  ButtonInteraction,
   ButtonStyle,
   Client,
   Collection,
@@ -23,6 +24,8 @@ import { seriesEmbed } from "./utils/embeds/seriesEmbed.ts";
 import { userEmbed } from "./utils/embeds/userEmbed.ts";
 import { worksEmbed } from "./utils/embeds/worksEmbed.ts";
 
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -34,9 +37,6 @@ const ao3Limiter = new Bottleneck({
   reservoirRefreshInterval: 60 * 1000,
 });
 
-dotenv.config();
-
-// Extends Client class to add Commands
 export class ClientWithCommands extends Client {
   public commands = new Collection<
     string,
@@ -48,7 +48,6 @@ export class ClientWithCommands extends Client {
   >();
 }
 
-// Declares Intents
 const client = new ClientWithCommands({
   intents: [
     GatewayIntentBits.Guilds,
@@ -57,7 +56,6 @@ const client = new ClientWithCommands({
   ],
 });
 
-// Loads event listeners.
 const eventsPath = path.join(__dirname, "events");
 const eventFiles = fs.readdirSync(eventsPath).filter((file) => {
   console.log("Event Loaded:", file);
@@ -68,6 +66,7 @@ for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
   const eventModule = await import(pathToFileURL(filePath).href);
   const event = eventModule.default ?? eventModule;
+
   if (event.once) {
     client.once(event.name, (...args: any) => event.execute(...args));
   } else {
@@ -75,7 +74,6 @@ for (const file of eventFiles) {
   }
 }
 
-// Loads commands.
 const foldersPath = path.join(__dirname, "commands");
 const commandFolders = fs.readdirSync(foldersPath);
 
@@ -84,6 +82,7 @@ for (const folder of commandFolders) {
   const commandFiles = fs
     .readdirSync(commandsPath)
     .filter((file) => file.endsWith(".js"));
+
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const commandModule = await import(pathToFileURL(filePath).href);
@@ -100,26 +99,17 @@ for (const folder of commandFolders) {
   }
 }
 
-// Listens to message.
+const ao3Links =
+  /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
+
 client.on(Events.MessageCreate, async (message) => {
-  // Tells bot to ignore messages from other bots.
   if (message.author.bot) return;
 
-  // Regex used to identify if AO3 links are in the message.
-  const ao3Links =
-    /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
+  const urls = message.content.replaceAll(">", "").match(ao3Links) ?? [];
+  if (!urls.length) return;
 
-  // Identifies if AO3 links are in message.
-  if (ao3Links.test(message.content) === true) {
-    /*
-		Creates an Array of AO3 links in the message and removes symbol used for
-		suppressing embeds from end of AO3 links.
-		*/
-    let urls = message.content.replaceAll(">", "").match(ao3Links)!;
-
-    // * Identifies what type of AO3 links are in message and responds.
-    for (const url of urls) {
-      // For works link that does not contain chapter information:
+  for (const url of urls) {
+    try {
       if (url.includes("/works/") && !url.includes("/chapters/")) {
         await handleAo3Url({
           message,
@@ -128,100 +118,103 @@ client.on(Events.MessageCreate, async (message) => {
           embedFn: worksEmbed,
           authError,
         });
-        return;
-        // For user links:
-      } else if (url.includes("/users/")) {
+        continue;
+      }
+
+      if (url.includes("/users/")) {
         await handleAo3Url({
           message,
           url,
           ao3Limiter,
           embedFn: userEmbed,
         });
-        // For series url:
-      } else if (url.includes("/series/")) {
+        continue;
+      }
+
+      if (url.includes("/series/")) {
         await handleAo3Url({
           message,
           url,
           ao3Limiter,
           embedFn: seriesEmbed,
         });
-        // For url with chapters in link:
-      } else if (url.includes("/chapters/")) {
-        // ask user if they want a work or chapter embed;
-        const question = "Would you like a work or chapter embed?";
-
-        const work = new ButtonBuilder()
-          .setCustomId("work")
-          .setLabel("Work")
-          .setStyle(ButtonStyle.Secondary);
-
-        const chapter = new ButtonBuilder()
-          .setCustomId("chapter")
-          .setLabel("Chapter")
-          .setStyle(ButtonStyle.Secondary);
-
-        const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          work,
-          chapter,
-        );
-
-        const botReply = await message.channel.send({
-          content: question,
-          components: [buttons],
-        });
-
-        const collector = botReply.createMessageComponentCollector({
-          componentType: ComponentType.Button,
-          time: 15_000,
-        });
-
-        // Get the button interaction from user
-        collector.on("collect", async (buttonInteraction) => {
-          // User selects work
-          if (
-            buttonInteraction.user.id === message.author.id &&
-            buttonInteraction.customId === "work"
-          ) {
-            botReply.delete();
-            await handleAo3Url({
-              message,
-              url,
-              ao3Limiter,
-              embedFn: worksEmbed,
-              authError,
-            });
-            return;
-
-            // User selects chapter
-          } else if (
-            buttonInteraction.user.id === message.author.id &&
-            buttonInteraction.customId === "chapter"
-          ) {
-            botReply.delete();
-            await handleAo3Url({
-              message,
-              url,
-              ao3Limiter,
-              embedFn: chapterEmbed,
-              authError,
-            });
-
-            // Reply to non-OP using buttons.
-          } else {
-            buttonInteraction.reply({
-              content: `These buttons aren't for you!`,
-              flags: MessageFlags.Ephemeral,
-            });
-          }
-        });
-
-        collector.on("end", (collected) => {
-          console.log(`Collected ${collected.size} interactions.`);
-        });
+        continue;
       }
+
+      if (url.includes("/chapters/")) {
+        await handleChapterLink(message, url);
+        continue;
+      }
+    } catch (error) {
+      console.error("Failed to process AO3 URL:", url, error);
     }
   }
 });
 
-// Login to Discord and start bot.
+async function handleChapterLink(message: any, url: string) {
+  const question = "Would you like a work or chapter embed?";
+
+  const workButton = new ButtonBuilder()
+    .setCustomId("work")
+    .setLabel("Work")
+    .setStyle(ButtonStyle.Secondary);
+
+  const chapterButton = new ButtonBuilder()
+    .setCustomId("chapter")
+    .setLabel("Chapter")
+    .setStyle(ButtonStyle.Secondary);
+
+  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    workButton,
+    chapterButton,
+  );
+
+  const botReply = await message.channel.send({
+    content: question,
+    components: [buttons],
+  });
+
+  const collector = botReply.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 15_000,
+  });
+
+  collector.on("collect", async (buttonInteraction: ButtonInteraction) => {
+    if (buttonInteraction.user.id !== message.author.id) {
+      await buttonInteraction.reply({
+        content: "These buttons aren't for you!",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    botReply.delete();
+
+    if (buttonInteraction.customId === "work") {
+      await handleAo3Url({
+        message,
+        url,
+        ao3Limiter,
+        embedFn: worksEmbed,
+        authError,
+      });
+      return;
+    }
+
+    if (buttonInteraction.customId === "chapter") {
+      await handleAo3Url({
+        message,
+        url,
+        ao3Limiter,
+        embedFn: chapterEmbed,
+        authError,
+      });
+    }
+  });
+
+  collector.on("end", (collected: Collection<string, ButtonInteraction>) => {
+    console.log(`Collected ${collected.size} interactions.`);
+  });
+}
+
 client.login(process.env.TOKEN);

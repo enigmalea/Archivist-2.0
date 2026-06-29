@@ -9,5 +9,5 @@ export const execute = (client: ClientWithCommands) => {
 		activities: [{ name: `archivistbot.com`, type: ActivityType.Watching }],
 		status: 'online',
 	  });
-    console.log(`Ready! Logged in as ${client.user?.tag}`);
+    console.log(`Ready! Logged in as ${client.user?.tag ?? "unknown user"}`);
 };
