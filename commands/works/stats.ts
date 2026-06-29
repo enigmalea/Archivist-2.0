@@ -10,6 +10,7 @@ import { embedColor, ratingIcon } from "../../utils/ratings.ts"
 import { cachedGetWork } from "../../utils/cache.ts";
 import { constructCreators } from "../../utils/creators.ts";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
+import { shipCategories } from "../../utils/tags.ts";
 
 export const data = new SlashCommandBuilder()
 
@@ -54,7 +55,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       let kudos = work.stats.kudos.toString();
       let bookmarks = work.stats.bookmarks.toString();
       let comments = work.stats.comments.toString();
-      let category = work.category!.join(", ");
+      let category = shipCategories(work);
 
       let chapters = chapterDisplay(work);
       let updatedDate = updatedAt(work);
