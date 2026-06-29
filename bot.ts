@@ -107,8 +107,7 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
 
   // Regex used to identify if AO3 links are in the message.
-  let ao3Links =
-    /(http|https):\/\/(www.|)(archiveofourown.org|ao3.org)\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*(),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+/g;
+  const ao3Links = /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
 
   // Identifies if AO3 links are in message.
   if (ao3Links.test(message.content) === true) {
