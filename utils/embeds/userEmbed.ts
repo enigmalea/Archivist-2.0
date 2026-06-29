@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "discord.js";
-import { getUser } from "@fujocoded/ao3.js";
+import { cachedGetUser } from "../cache.ts";
 import { stripIndents } from "common-tags";
 
 export var userEmbed = async (userURL: string) => {
@@ -7,7 +7,7 @@ export var userEmbed = async (userURL: string) => {
     .replaceAll("https://", "")
     .replaceAll("http://", "")
     .split("/")[2];
-  const user = await getUser({ username: username });
+  const user = await cachedGetUser(username );
 	
   let header;
   switch (user.header) {

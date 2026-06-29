@@ -1,14 +1,14 @@
 import { formatCompletionStatus, startedDate, updatedAt } from "../statuses.ts";
 
 import { EmbedBuilder } from "discord.js";
+import { cachedGetSeries } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
-import { getSeries } from "@fujocoded/ao3.js";
 import { getSeriesIdFromUrl } from "../urls.ts"
 import { stripIndents } from "common-tags";
 
 export var seriesEmbed = async (seriesURL: string) => {
 	const seriesId = getSeriesIdFromUrl(seriesURL);
-  const series = await getSeries({ seriesId: seriesId });
+  const series = await cachedGetSeries(seriesId );
 
 	const creators = constructCreators(series.authors, series.authors?.[0]?.anonymous);
   const complete = formatCompletionStatus(series);

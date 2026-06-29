@@ -7,8 +7,8 @@ import { ao3WorkError, authError } from "../../utils/errors.ts";
 import { chapterDisplay, formatCompletionStatus, publishedDate, updatedAt } from "../../utils/statuses.ts";
 import { embedColor, ratingIcon } from "../../utils/ratings.ts"
 
+import { cachedGetWork } from "../../utils/cache.ts";
 import { constructCreators } from "../../utils/creators.ts";
-import { getWork } from "@fujocoded/ao3.js";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 
 export const data = new SlashCommandBuilder()
@@ -40,7 +40,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   } else {
     // Now that we are certain this is a work link, assigns variables to identify the work.
     const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
-    const work = await getWork({ workId: workId });
+    const work = await cachedGetWork(workId );
 
     if (work.locked) {
       // ! Tests to see if the work is locked. If so, returns an error message.
