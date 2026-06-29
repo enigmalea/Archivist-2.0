@@ -1,4 +1,4 @@
-import { getSeries, getUser, getWork } from "@fujocoded/ao3.js";
+import { getSeries, getUser, getWork, getWorkContent } from "@fujocoded/ao3.js";
 
 interface CacheEntry<T> {
   data: T;
@@ -37,6 +37,8 @@ class Cache<T> {
 // render it as.
 export const workCache = new Cache<Awaited<ReturnType<typeof getWork>>>(60 * 60 * 1000);
 export const seriesCache = new Cache<Awaited<ReturnType<typeof getSeries>>>(60 * 60 * 1000);
+export const workChapterCache = new Cache<Awaited<ReturnType<typeof getWork>>>(60 * 60 * 1000);
+export const workContentCache = new Cache<Awaited<ReturnType<typeof getWorkContent>>>(60 * 60 * 1000);
 export const userCache = new Cache<Awaited<ReturnType<typeof getUser>>>(24 * 60 * 60 * 1000);
 
 // Single entry point for fetching each resource. Every consumer calls these
@@ -66,4 +68,28 @@ export async function cachedGetUser(username: string) {
   const user = await getUser({ username });
   userCache.set(username, user);
   return user;
+}
+
+function chapterCacheKey(workId: string | number, chapterId: string | number | null | undefined): string {
+  return `${workId}:${chapterId ?? "default"}`;
+}
+
+export async function cachedGetWorkChapter(workId: string | number, chapterId: number | undefined) {
+  const key = chapterCacheKey(workId, chapterId);
+  const cached = workChapterCache.get(key);
+  if (cached) return cached;
+
+  const work = await getWork({ workId, chapterId });
+  workChapterCache.set(key, work);
+  return work;
+}
+
+export async function cachedGetWorkContent(workId: string | number, chapterId: number | undefined) {
+  const key = chapterCacheKey(workId, chapterId);
+  const cached = workContentCache.get(key);
+  if (cached) return cached;
+
+  const content = await getWorkContent({ workId, chapterId });
+  workContentCache.set(key, content);
+  return content;
 }
