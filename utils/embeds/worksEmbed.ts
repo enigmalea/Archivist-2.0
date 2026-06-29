@@ -3,17 +3,17 @@ import { embedColor, ratingIcon } from "../ratings.ts";
 import { formatWorkSeries, formatWorkSummary } from "../../utils/details.ts";
 
 import { EmbedBuilder } from "discord.js";
+import { cachedGetWork } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
-import { getWork } from "@fujocoded/ao3.js";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 import { shipCategories } from "../tags.ts";
 
 export var worksEmbed = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
-  const work = await getWork({ workId: workId });
+  const work = await cachedGetWork(workId);
 
   if (work.locked) {
-    return;
+    return work;
   } else {
     // Creates the variables for the embed.
     const color = embedColor(work);

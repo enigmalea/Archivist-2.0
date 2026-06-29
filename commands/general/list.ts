@@ -5,8 +5,8 @@ import {
 } from "discord.js";
 
 import { ao3SeriesError } from "../../utils/errors.ts";
-import { getSeries } from "@fujocoded/ao3.js";
 import { getUserProfileUrl } from "@fujocoded/ao3.js/urls";
+import { cachedGetSeries } from "../../utils/cache.ts"
 
 export const data = new SlashCommandBuilder()
 
@@ -40,7 +40,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       .replaceAll("https://", "")
       .replaceAll("http://", "")
       .split("/")[2];
-    const series = await getSeries({ seriesId: seriesId });
+    const series = await cachedGetSeries(seriesId);
 
     // Gets the name for the series.
     let title = series.name;

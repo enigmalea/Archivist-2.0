@@ -12,7 +12,6 @@ import {
 } from "discord.js";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { getSeriesIdFromUrl, getUsernameFromUrl, handleWorkUrl } from "./utils/urls.ts"
-import { seriesCache, userCache, workCache } from "./utils/cache.ts";
 
 import Bottleneck from "bottleneck";
 import { authError } from "./utils/errors.ts";
@@ -37,20 +36,6 @@ const ao3Limiter = new Bottleneck({
 });
 
 dotenv.config();
-
-type CachedWork =
-  | { type: "error"; payload: any }
-  | NonNullable<Awaited<ReturnType<typeof worksEmbed>>>;
-
-type CachedUser = NonNullable<Awaited<ReturnType<typeof userEmbed>>>;
-
-type CachedSeries = NonNullable<Awaited<ReturnType<typeof seriesEmbed>>>;
-
-const isCachedWorkError = (
-  value: CachedWork | null | undefined,
-): value is { type: "error"; payload: any } => {
-  return value !== null && value !== undefined && "payload" in value;
-};
 
 // Extends Client class to add Commands
 export class ClientWithCommands extends Client {
@@ -137,61 +122,30 @@ client.on(Events.MessageCreate, async (message) => {
     for (const url of urls) {
       // For works link that does not contain chapter information:
       if (url.includes("/works/") && !url.includes("/chapters/")) {
-				const shouldReturn = await handleWorkUrl({
-          message,
-          url,
-          workCache,
-          ao3Limiter,
-          worksEmbed,
-          getWorkDetailsFromUrl,
-          isCachedWorkError,
-          authError,
-        });
-        if (shouldReturn) return;
+				  await handleWorkUrl({
+						message,
+						url,
+						ao3Limiter,
+						worksEmbed,
+						authError,
+					});
+					return;
 				// For user links:
 			} else if (url.includes("/users/")) {
-				// Checks cache for user.
-				const username = getUsernameFromUrl(url);
-				const cachedUser = userCache.get(username) as CachedUser | null;
-
-				// If cached, returns cached user embed.
-        if (cachedUser) {
-						await message.channel.send({ embeds: [cachedUser] });
-				}
-
-				// Uncached user begins fetch from AO3
+				
+				
         const waitingMsg = await message.channel.send(
           "⏳ Fetching from AO3...",
         );
         const urlResponse = await ao3Limiter.schedule(() => userEmbed(url));
-
-					// Adds a good url response to the cache.
-					if (urlResponse) {
-     				 userCache.set(username, urlResponse);
-    			}
-
         await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
 			
 				// For series url:
       } else if (url.includes("/series/")) {
-				// Check cache for seriesId
-				const seriesId = getSeriesIdFromUrl(url);
-				const cachedSeries = seriesCache.get(seriesId) as CachedSeries | null;
-
-				if (cachedSeries) {
-					await message.channel.send({ embeds: [cachedSeries] });
-				}
-
-				// Uncached series begins fetch from AO3
         const waitingMsg = await message.channel.send(
           "⏳ Fetching from AO3...",
         );
         const urlResponse = await ao3Limiter.schedule(() => seriesEmbed(url));
-
-					// Adds a good url response to the cache.
-					if (urlResponse) {
-     				 userCache.set(seriesId, urlResponse);
-    			}
 
         await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
 
@@ -234,16 +188,14 @@ client.on(Events.MessageCreate, async (message) => {
             buttonInteraction.customId === "work"
           ) {
             botReply.delete();
-            await handleWorkUrl({
-              message,
-              url,
-              workCache,
-              ao3Limiter,
-              worksEmbed,
-              getWorkDetailsFromUrl,
-              isCachedWorkError,
-              authError,
-            });
+							await handleWorkUrl({
+								message,
+								url,
+								ao3Limiter,
+								worksEmbed,
+								authError,
+							});
+						return;
 
 						// User selects chapter
           } else if (
@@ -254,9 +206,17 @@ client.on(Events.MessageCreate, async (message) => {
             const waitingMsg = await message.channel.send(
               "⏳ Fetching from AO3...",
             );
-            // replace with your chapter embed logic when ready
+
             const urlResponse = await ao3Limiter.schedule(() => chapterEmbed(url));
-            await waitingMsg.edit({ content: "", embeds: [urlResponse!] });
+
+  					if ("locked" in urlResponse) {
+							await waitingMsg.edit(authError);
+							return;
+						}
+
+						await waitingMsg.edit({ content: "", embeds: [urlResponse] });
+
+						// Reply to non-OP using buttons.
           } else {
             buttonInteraction.reply({
               content: `These buttons aren't for you!`,
