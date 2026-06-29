@@ -1,12 +1,12 @@
 import { chapterDisplay, formatCompletionStatus, publishedDate, updatedAt } from "../statuses.ts";
 import { embedColor, ratingIcon } from "../ratings.ts";
+import { formatCharacters, formatFandoms, formatRelationships, formatTags, formatWarnings, shipCategories } from "../tags.ts";
 import { formatWorkSeries, formatWorkSummary } from "../../utils/details.ts";
 
 import { EmbedBuilder } from "discord.js";
 import { cachedGetWork } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
-import { shipCategories } from "../tags.ts";
 
 export var worksEmbed = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
@@ -29,12 +29,17 @@ export var worksEmbed = async (workURL: string) => {
     const status = formatCompletionStatus(work);
 
     const rating = ratingIcon(work);
-    const warnings = work.tags.warnings.join(", ");
+    const warnings = formatWarnings(work);
     const category = shipCategories(work);
+
+		const fandoms = formatFandoms(work);
+		const relationships = formatRelationships(work);
+		const characters = formatCharacters(work);
+		const tags = formatTags(work);
 
     const summary = formatWorkSummary(work);
 
-    // TODO: add series and collections to description.
+    // TODO: add collections to description.
     const description = `by ${creators!}\n${series!}`;
 
     // * Constructs embed to send to Discord.
@@ -60,6 +65,11 @@ export var worksEmbed = async (workURL: string) => {
       .addFields({ name: "Warnings:", value: warnings, inline: true })
       .addFields({ name: "Category:", value: category, inline: true })
 
+			.addFields({ name: "Fandoms:", value: fandoms, inline: false })
+			.addFields({ name: "Relationships:", value: relationships, inline: false })
+			.addFields({ name: "Characters:", value: characters, inline: false })
+
+			.addFields({ name: "Additional Tags:", value: tags, inline: false })
       .addFields({ name: "Summary:", value: summary!, inline: false })
 
       .setTimestamp()
