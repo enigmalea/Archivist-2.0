@@ -1,8 +1,3 @@
-import { cachedGetWork } from "./cache.ts";
-
-/* 
-URL UTILITIES
-*/
 export function extractPathnameGroup(url: string, regex: RegExp): string {
   try {
     const { pathname } = new URL(url);
@@ -42,12 +37,20 @@ export async function handleAo3Url({
 }): Promise<void> {
   const waitingMsg = await message.channel.send("⏳ Fetching from AO3...");
 
-  const urlResponse = await ao3Limiter.schedule(() => embedFn(url));
+  try {
+    const urlResponse = await ao3Limiter.schedule(() => embedFn(url));
 
-  if (authError && "locked" in urlResponse) {
-    await waitingMsg.edit(authError);
-    return;
+    if (authError && urlResponse && typeof urlResponse === "object" && "locked" in urlResponse) {
+      await waitingMsg.edit(authError);
+      return;
+    }
+
+    await waitingMsg.edit({ content: "", embeds: [urlResponse] });
+  } catch (error) {
+    await waitingMsg.edit({
+      content: "Failed to fetch AO3 content. Please try again later.",
+      embeds: [],
+    });
+    throw error;
   }
-
-  await waitingMsg.edit({ content: "", embeds: [urlResponse] });
 }
