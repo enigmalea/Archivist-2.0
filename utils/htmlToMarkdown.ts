@@ -13,6 +13,15 @@ turndownService.addRule("underline", {
   replacement: (content) => `__${content}__`,
 });
 
+turndownService.addRule("image-as-link", {
+  filter: "img",
+  replacement: (_content, node) => {
+    const alt = node.getAttribute("alt") ?? "";
+    const src = node.getAttribute("src") ?? "";
+    return src ? `[${alt || src}](${src})` : "";
+  },
+});
+
 export function htmlToMarkdown(html: string | null | undefined): string | null {
   if (!html) return null;
 

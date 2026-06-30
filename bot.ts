@@ -18,10 +18,10 @@ import { authError } from "./utils/errors.ts";
 import { chapterEmbed } from "./utils/embeds/chapterEmbed.ts";
 import dotenv from "dotenv";
 import fs from "node:fs";
-import { handleAo3Url } from "./utils/urls.ts";
+import { getUsernameFromUrl, handleAo3Url } from "./utils/urls.ts";
 import path from "node:path";
 import { seriesEmbed } from "./utils/embeds/seriesEmbed.ts";
-import { userEmbed } from "./utils/embeds/userEmbed.ts";
+import { buildUserEmbedComponents, buildUserEmbedPages } from "./utils/embeds/userEmbed.ts";
 import { worksEmbed } from "./utils/embeds/worksEmbed.ts";
 
 dotenv.config();
@@ -124,12 +124,23 @@ client.on(Events.MessageCreate, async (message) => {
       }
 
       if (url.includes("/users/")) {
-        await handleAo3Url({
-          message,
-          url,
-          ao3Limiter,
-          embedFn: userEmbed,
-        });
+        const waitingMsg = await message.channel.send("⏳ Fetching from AO3...");
+        try {
+          const username = getUsernameFromUrl(url);
+          const pages = await ao3Limiter.schedule(() => buildUserEmbedPages(username));
+          await waitingMsg.edit({
+            content: "",
+            embeds: [pages[0]],
+            components:
+              pages.length > 1
+                ? buildUserEmbedComponents(message.author.id, 0, pages.length, username)
+                : [],
+          });
+        } catch (error) {
+          console.error(`Failed to build user embed for ${url}`);
+          console.error(error);
+          await waitingMsg.edit("⚠️ Something went wrong fetching that from AO3.").catch(() => {});
+        }
         continue;
       }
 
