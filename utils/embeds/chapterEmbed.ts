@@ -8,6 +8,7 @@ import { constructCreators } from "../creators.ts";
 import { countChapterWords } from "../words.ts";
 import { formatWarnings } from "../tags.ts";
 import { formatWorkSeries } from "../../utils/details.ts";
+import { htmlToMarkdown } from "../htmlToMarkdown.ts";
 import { stripIndents } from "common-tags";
 
 export const chapterEmbed = async (workURL: string) => {
@@ -36,7 +37,7 @@ export const chapterEmbed = async (workURL: string) => {
   const chapterName =
     work.chapterInfo?.name || `Chapter ${work.chapterInfo?.index ?? "?"}`;
   const chapterSummary =
-    work.chapterInfo?.summary?.trim() || "*This chapter does not have a summary.*";
+    htmlToMarkdown(work.chapterInfo?.summary) ?? "*This chapter does not have a summary.*";
   const readFromBeginningUrl = getWorkUrl({ workId });
 
   const description = stripIndents`

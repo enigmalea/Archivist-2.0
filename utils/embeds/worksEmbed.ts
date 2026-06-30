@@ -14,6 +14,7 @@ import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetWork } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
 import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
+import { htmlToMarkdown } from "../htmlToMarkdown.ts";
 
 export const worksEmbed = async (workURL: string) => {
   const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
@@ -36,7 +37,7 @@ export const worksEmbed = async (workURL: string) => {
   const relationships = formatRelationships(work) || "N/A";
   const characters = formatCharacters(work) || "N/A";
   const tags = formatTags(work) || "N/A";
-  const summary = formatWorkSummary(work) || "No summary available.";
+  const summary = htmlToMarkdown(formatWorkSummary(work)) ?? "No summary available.";
 
   const description = [ `by ${creators}`, series ].filter(Boolean).join("\n");
 
