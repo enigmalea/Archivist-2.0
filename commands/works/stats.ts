@@ -66,6 +66,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   const creators = constructCreators(work.authors, work.authors?.[0]?.anonymous);
   const series = formatWorkSeries(work);
 
+	// TODO: Add collections to embed.
   const description = `by ${creators}\n${series}`;
 
   const statsEmbed = ao3Embed(color)

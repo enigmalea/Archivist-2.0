@@ -1,3 +1,5 @@
+import { htmlToMarkdown } from "./htmlToMarkdown.ts";
+
 type SeriesItem = {
   id: string | number;
   name: string;
@@ -26,6 +28,6 @@ export function formatWorkSeries(work: WorkSeriesSource): string {
 export function formatWorkSummary(work: WorkSummarySource): string {
   if (work?.locked || !work) return "";
 
-  const summary = work.summary?.trim();
+  const summary = htmlToMarkdown(work.summary?.trim());
   return summary || "N/A";
 }

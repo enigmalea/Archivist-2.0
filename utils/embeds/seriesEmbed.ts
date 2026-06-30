@@ -14,7 +14,6 @@ export const seriesEmbed = async (seriesURL: string) => {
   const creators =
     constructCreators(series.authors, series.authors?.[0]?.anonymous) ||
     "Anonymous";
-
   const notes =
     htmlToMarkdown(series.notes) ?? "*This series does not have notes.*";
   const seriesDescription =

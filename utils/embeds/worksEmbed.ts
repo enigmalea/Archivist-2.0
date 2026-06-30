@@ -39,6 +39,7 @@ export const worksEmbed = async (workURL: string) => {
   const tags = formatTags(work) || "N/A";
   const summary = htmlToMarkdown(formatWorkSummary(work)) ?? "No summary available.";
 
+	// TODO: Add collections to embed.
   const description = [ `by ${creators}`, series ].filter(Boolean).join("\n");
 
   return ao3Embed(color)
@@ -46,6 +47,7 @@ export const worksEmbed = async (workURL: string) => {
     .setURL(workURL)
     .setDescription(description)
     .addFields([
+			// TODO: wire settings to show/hide fields.
       { name: "Words", value: work.words.toString(), inline: true },
       { name: "Chapters", value: chapterDisplay(work), inline: true },
       { name: "Language", value: work.language ?? "N/A", inline: true },

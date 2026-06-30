@@ -1,10 +1,9 @@
+import type { EmbedBuilder } from "discord.js";
 import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetUser } from "../cache.ts";
 import { chunkText } from "../chunkText.ts";
 import { getUsernameFromUrl } from "../urls.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
-
-import type { EmbedBuilder } from "discord.js";
 
 function padInlineRow(embed: EmbedBuilder, fieldCount: number) {
   const padding = (3 - (fieldCount % 3)) % 3;
