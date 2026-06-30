@@ -23,6 +23,7 @@ export function formatWorkSeries(work: WorkSeriesSource): string {
   return `**Series:** ${formattedSeries.join(", ")}`;
 }
 
+// TODO: parse from HTML to markdown.
 export function formatWorkSummary(work: WorkSummarySource): string {
   if (work?.locked || !work) return "";
 

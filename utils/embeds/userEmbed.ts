@@ -8,6 +8,7 @@ export const userEmbed = async (userURL: string) => {
   const user = await cachedGetUser(username);
 
   const header = user.header ? `# ${user.header}\n` : "";
+	// TODO: Parse HTML to markdown.
   const bio = user.bioHtml ?? "*This user does not have a bio.*";
 
   const description = stripIndents`

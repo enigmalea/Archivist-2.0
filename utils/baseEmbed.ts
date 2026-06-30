@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "discord.js";
-
+// TODO: move host to website.
 const AO3_ICON_URL = "https://i.imgur.com/Ml4X1T6.png";
 const AO3_URL = "https://archiveofourown.org";
 const AO3_FOOTER_TEXT = "bot not affiliated with OTW or AO3";

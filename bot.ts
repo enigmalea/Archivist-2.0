@@ -99,6 +99,8 @@ for (const folder of commandFolders) {
   }
 }
 
+// TODO: Add support for respect masked links setting.
+// TODO: Add support for ignore character setting.
 const ao3Links =
   /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
 

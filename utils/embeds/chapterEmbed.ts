@@ -35,10 +35,12 @@ export const chapterEmbed = async (workURL: string) => {
 
   const chapterName =
     work.chapterInfo?.name || `Chapter ${work.chapterInfo?.index ?? "?"}`;
+	// TODO: Parse this HTML summary to markdown.
   const chapterSummary =
     work.chapterInfo?.summary?.trim() || "*This chapter does not have a summary.*";
   const readFromBeginningUrl = getWorkUrl({ workId });
 
+	// TODO: Add collections to embed.
   const description = stripIndents`
     ## [${chapterName}](${workURL})
     by ${creators}
@@ -50,6 +52,7 @@ export const chapterEmbed = async (workURL: string) => {
     .setURL(readFromBeginningUrl)
     .setDescription(description)
     .addFields([
+			// TODO: Wire up settings checks to hide various fields.
       { name: "Words", value: wordCount, inline: true },
       { name: "Chapters", value: chapterDisplay(work), inline: true },
       { name: "Rating", value: rating, inline: true },
