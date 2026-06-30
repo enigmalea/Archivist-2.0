@@ -17,7 +17,6 @@ export const userEmbed = async (userURL: string) => {
   const user = await cachedGetUser(username);
 
   const header = user.header ? `# ${user.header}` : null;
-	// TODO: Parse HTML to markdown.
   const bio = htmlToMarkdown(user.bioHtml) ?? "*This user does not have a bio.*";
 
   const embed = ao3Embed()

@@ -36,7 +36,7 @@ export const chapterEmbed = async (workURL: string) => {
 
   const chapterName =
     work.chapterInfo?.name || `Chapter ${work.chapterInfo?.index ?? "?"}`;
-	// TODO: Parse this HTML summary to markdown.
+
   const chapterSummary =
     htmlToMarkdown(work.chapterInfo?.summary) ?? "*This chapter does not have a summary.*";
   const readFromBeginningUrl = getWorkUrl({ workId });
