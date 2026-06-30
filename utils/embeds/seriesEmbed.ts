@@ -4,6 +4,7 @@ import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetSeries } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
 import { getSeriesIdFromUrl } from "../urls.ts";
+import { htmlToMarkdown } from "../htmlToMarkdown.ts";
 import { stripIndents } from "common-tags";
 
 export const seriesEmbed = async (seriesURL: string) => {
@@ -14,9 +15,10 @@ export const seriesEmbed = async (seriesURL: string) => {
     constructCreators(series.authors, series.authors?.[0]?.anonymous) ||
     "Anonymous";
 
-  const notes = series.notes ?? "*This series does not have notes.*";
+  const notes =
+    htmlToMarkdown(series.notes) ?? "*This series does not have notes.*";
   const seriesDescription =
-    series.description ?? "*This series does not have a description.*";
+    htmlToMarkdown(series.description) ?? "*This series does not have a description.*";
 
   const description = stripIndents`
     **Authors:** ${creators}
