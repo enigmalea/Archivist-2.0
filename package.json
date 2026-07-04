@@ -17,13 +17,17 @@
     "dayjs": "^1.11.21",
     "discord.js": "^14.26.4",
     "dotenv": "^17.4.2",
+    "drizzle-orm": "^0.45.2",
+    "mysql2": "^3.22.5",
     "turndown": "^7.2.4"
   },
   "devDependencies": {
     "@types/common-tags": "^1.8.4",
     "@types/node": "^26.1.0",
     "@types/turndown": "^5.0.6",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.6.0",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3"
   }
 }
