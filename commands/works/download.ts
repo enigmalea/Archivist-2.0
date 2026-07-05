@@ -86,10 +86,9 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
 
   const description = stripIndents`by ${creators}
     _Click the link below to download the **${file.toUpperCase()}** file you requested._
-
     ## ${fileIcon} [Download](${downloadLink})
 
-		- 🌟 DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! 🌟`;
+		🌟 DON'T FORGET TO VISIT AO3 TO LEAVE KUDOS OR COMMENTS! 🌟`;
 
   const downloadEmbed = ao3Embed()
     .setTitle(title)

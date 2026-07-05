@@ -2,6 +2,7 @@ import { BaseInteraction, Events } from "discord.js";
 
 import type { ClientWithCommands } from "../bot.ts";
 import { handleHelpButtonInteraction } from "../commands/general/help.ts";
+import { handleListButtonInteraction } from "../commands/general/list.ts";
 import { handleUserEmbedButtonInteraction } from "../utils/embeds/userEmbed.ts";
 
 export const name = Events.InteractionCreate;
@@ -9,6 +10,8 @@ export const execute = async (interaction: BaseInteraction) => {
   if (interaction.isButton()) {
     if (await handleHelpButtonInteraction(interaction)) return;
     if (await handleUserEmbedButtonInteraction(interaction)) return;
+		if (await handleListButtonInteraction(interaction)) return;
+		return;
   }
 
   if (!interaction.isChatInputCommand()) return;
