@@ -5,6 +5,8 @@ import {
 } from "discord.js";
 import { oneLine, stripIndents } from "common-tags";
 
+import { getEmoji } from '../../utils/emojis.ts';
+
 export const data = new SlashCommandBuilder()
   .setName("support")
   .setDescription("Want to support Archivist? Here's how!");
@@ -20,15 +22,15 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     ▸ [top.gg](https://top.gg/bot/812505952959856690)
 
     **✨ Tell your friends**
-    ▸ Post about <:logo:848627809647329320> **${botName}** on tumblr, BlueSky, or other fandom spaces.
-    ▸ Ask mods to add <:logo:848627809647329320> **${botName}** to Discord servers you're in.`;
+    ▸ Post about ${getEmoji("logo")} **${botName}** on tumblr, BlueSky, or other fandom spaces.
+    ▸ Ask mods to add ${getEmoji("logo")} **${botName}** to Discord servers you're in.`;
 
   const paidOptions = stripIndents`__There are no premium or paid features to use 
-    <:logo:848627809647329320> **${botName}**.__ This is not a for profit project.
+    ${getEmoji("logo")} **${botName}**.__ This is not a for profit project.
     However, if you would like to donate to help offset the cost of hosting or 
     to just say thank you, feel free to visit my ko-fi.
 
-    <:kofi:848631801046892604> **[enigmalea](https://ko-fi.com/enigmalea)**`;
+    ${getEmoji("kofi")} **[enigmalea](https://ko-fi.com/enigmalea)**`;
 
   const supportEmbed = new EmbedBuilder()
     .setColor(0x2f3136)

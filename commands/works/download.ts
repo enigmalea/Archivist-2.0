@@ -8,6 +8,7 @@ import { getDownloadUrls, getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 import { ao3Embed } from "../../utils/baseEmbed.ts";
 import { cachedGetWork } from "../../utils/cache.ts";
 import { constructCreators } from "../../utils/creators.ts";
+import { getEmoji } from "../../utils/emojis.ts";
 import { stripIndents } from "common-tags";
 
 export const data = new SlashCommandBuilder()
@@ -67,11 +68,11 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   const urls = getDownloadUrls(work);
 
   const FILE_TYPE: Record<FileType, { url?: string; icon: string }> = {
-    azw3: { url: urls.azw3, icon: "<:azw3:848005536283885579>" },
-    epub: { url: urls.epub, icon: "<:epub:848005536241680434>" },
-    html: { url: urls.html, icon: "<:html:848005536347455498>" },
-    mobi: { url: urls.mobi, icon: "<:mobi:848005536493600768>" },
-    pdf: { url: urls.pdf, icon: "<:pdf:848005536552976444>" },
+    azw3: { url: urls.azw3, icon: getEmoji("azw3") },
+    epub: { url: urls.epub, icon: getEmoji("epub") },
+    html: { url: urls.html, icon: getEmoji("html") },
+    mobi: { url: urls.mobi, icon: getEmoji("mobi") },
+    pdf: { url: urls.pdf, icon: getEmoji("pdf") },
   };
 
   const downloadLink = FILE_TYPE[file]?.url;

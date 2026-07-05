@@ -4,6 +4,7 @@ import {
   SlashCommandBuilder,
 } from "discord.js";
 import { oneLine, stripIndents } from "common-tags";
+import { getEmoji } from "../../utils/emojis.ts";
 
 // Import Archivist version
 const settings = await import(
@@ -59,7 +60,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   const shardID = interaction.guild?.shardId ?? "N/A";
 
   const links = stripIndents`💻 [archivistbot.com](${homepageURL})
-    <:add:906993610329841734> [Invite to Your Server](${inviteURL})
+    ${getEmoji("add")} [Invite to Your Server](${inviteURL})
     ❔ [Support Server](${serverURL})
     🔒 [Privacy Policy](${privacyPolicy})`;
 
