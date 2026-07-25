@@ -190,19 +190,60 @@ export const userEmbeds = table(
 
 /**
  * Embed message index — one row per bot-posted embed message, regardless
- * of type. Exists solely so MessageDelete and MessageDeleteBulk handlers
- * can resolve messageId → embedType in a single query without hitting all
- * four embed tables, and without depending on Discord's message cache.
+ * of type. Exists so:
+ *   1. MessageDelete/MessageDeleteBulk handlers can resolve messageId ->
+ *      embedType in a single query, without hitting all four embed tables
+ *      or depending on Discord's message cache.
+ *   2. The 30-day post-removal purge job can delete all of a guild's
+ *      indexed messages directly by guildId, without joining through
+ *      four separate embed tables first.
  *
  * No FK to guild_settings (same reasoning as the four embed tables —
- * accidental kick should not kill active embeds).
+ * accidental kick should not kill active embeds; the purge job is what
+ * eventually cleans these up, on its own 30-day timer, not a cascade).
  *
  * Writes: insert a row here alongside every insert into work/chapter/
  * series/user embed tables (always in a transaction).
  * Deletes: when a message delete event fires, look up the type here first,
  * then delete from the appropriate embed table + this index together.
  */
-export const embedMessageIndex = table("embed_message_index", {
-  messageId: t.varchar({ length: 20 }).primaryKey(),
-  embedType: t.mysqlEnum(["work", "chapter", "series", "user"]).notNull(),
-});
+export const embedMessageIndex = table(
+  "embed_message_index",
+  {
+    messageId: t.varchar({ length: 20 }).primaryKey(),
+    guildId: t.varchar({ length: 20 }).notNull(),
+    embedType: t.mysqlEnum(["work", "chapter", "series", "user"]).notNull(),
+  },
+  (table) => [
+    t.index("embed_message_index_guild_idx").on(table.guildId),
+  ],
+);
+
+/**
+ * Tombstone table: tracks when a guild was removed (bot kicked), so the
+ * 30-day retention window for that guild's embeds can be measured. Not
+ * a soft-delete flag on guild_settings itself — guild_settings is hard-
+ * deleted on removal (see guildDelete handler), so this is the only
+ * record that a removal happened at all.
+ *
+ * Lifecycle:
+ *   - guildDelete fires -> insert a row here, then delete guild_settings
+ *     (cascades to embed_field_settings + redirect_rules). Embed tables
+ *     are untouched at this point.
+ *   - guildCreate fires for a guildId with a row here -> delete the row
+ *     (rejoining within the window cancels the pending purge).
+ *   - Daily job -> for rows older than 30 days: delete matching rows from
+ *     work_embeds/chapter_embeds/series_embeds/user_embeds/
+ *     embed_message_index (all filterable directly by guildId now), then
+ *     delete the row here.
+ */
+export const removedGuilds = table(
+  "removed_guilds",
+  {
+    guildId: t.varchar({ length: 20 }).primaryKey(),
+    removedAt: t.timestamp().defaultNow().notNull(),
+  },
+  (table) => [
+    t.index("removed_guilds_removed_at_idx").on(table.removedAt),
+  ],
+);
