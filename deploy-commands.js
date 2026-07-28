@@ -1,63 +1,46 @@
-import { REST, Routes } from "discord.js";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
 import dotenv from "dotenv";
-import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const commands = [];
-const foldersPath = path.join(__dirname, "commands");
-const commandFolders = fs.readdirSync(foldersPath);
+// Resolve .env relative to the project root (one level up from dist/),
+// not process.cwd(). dotenv's default cwd-relative lookup silently finds
+// nothing (and sets no env vars, with no error) if this script is ever
+// invoked directly from inside dist/ rather than via `npm run register`
+// from the project root.
+dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-// Selects output of each command's data for deployment.
-for (const folder of commandFolders) {
-  const commandsPath = path.join(foldersPath, folder);
-  const commandFiles = fs
-    .readdirSync(commandsPath)
-    .filter((file) => file.endsWith(".js"));
-
-  for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-
-    const module = await import(pathToFileURL(filePath));
-    const command = module.default ?? module;
-
-    if ("data" in command && "execute" in command) {
-      commands.push(command.data.toJSON());
-    } else {
-      console.log(
-        `[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`,
-      );
-    }
-  }
-}
-
-// Constructs and prepares an instance of the REST module.
-const rest = new REST().setToken(process.env.TOKEN);
+const { deployCommands } = await import("./utils/deployCommands.js");
 
 (async () => {
   try {
-    console.log(
-      `Started refreshing ${commands.length} application (/) commands.`,
-    );
+    const result = await deployCommands();
 
-    const data = await rest.put(
-      Routes.applicationCommands(
-        process.env.CLIENT_ID_TEST
-      ),
-      { body: commands },
-    );
+    console.log(`Successfully reloaded ${result.globalCount} global application (/) commands.`);
 
-    console.log(
-      `Successfully reloaded ${data.length} application (/) commands.`,
-    );
+    if (result.devCommandCount === 0) {
+      return;
+    }
+
+    if (result.skippedDevServers) {
+      console.log(
+        `Skipping ${result.devCommandCount} dev command(s) — no DEV_SERVERS configured.`,
+      );
+      return;
+    }
+
+    for (const r of result.devServerResults) {
+      if (r.error) {
+        console.error(`Failed to register dev commands for guild ${r.guildId}:`, r.error);
+      } else {
+        console.log(
+          `Successfully reloaded ${r.count} dev application (/) commands for guild ${r.guildId}.`,
+        );
+      }
+    }
   } catch (error) {
-    // Catches and log any errors.
     console.error(error);
   }
 })();
