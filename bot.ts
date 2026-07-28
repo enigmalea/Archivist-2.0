@@ -2,7 +2,6 @@ import {
   ActionRowBuilder,
   BaseInteraction,
   ButtonBuilder,
-  ButtonInteraction,
   ButtonStyle,
   Client,
   Collection,
@@ -12,19 +11,20 @@ import {
   MessageFlags,
 } from "discord.js";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { getCacheStatsByType, getCacheStatsTotals } from "./utils/cacheStats.ts";
+import { getUsernameFromUrl } from "./utils/urls.ts";
 
 import Bottleneck from "bottleneck";
 import { authError } from "./utils/errors.ts";
 import { chapterEmbed } from "./utils/embeds/chapterEmbed.ts";
 import dotenv from "dotenv";
 import fs from "node:fs";
-import { getUsernameFromUrl, handleAo3Url } from "./utils/urls.ts";
+import { getBotCredentials } from "./utils/botEnv.ts";
+import { handleAo3Url } from "./utils/urls.ts";
 import path from "node:path";
 import { seriesEmbed } from "./utils/embeds/seriesEmbed.ts";
 import { buildUserEmbedComponents, buildUserEmbedPages } from "./utils/embeds/userEmbed.ts";
 import { worksEmbed } from "./utils/embeds/worksEmbed.ts";
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -37,6 +37,11 @@ const ao3Limiter = new Bottleneck({
   reservoirRefreshInterval: 60 * 1000,
 });
 
+dotenv.config();
+
+const { token } = getBotCredentials();
+
+// Extends Client class to add Commands
 export class ClientWithCommands extends Client {
   public commands = new Collection<
     string,
@@ -46,8 +51,14 @@ export class ClientWithCommands extends Client {
       execute: (arg: BaseInteraction | ClientWithCommands) => void;
     }
   >();
+
+  // Exposed so broadcastEval can pull this shard's cache stats
+  // (mirrors the pattern about.ts uses for guild/user counts).
+  public getCacheStatsTotals = getCacheStatsTotals;
+  public getCacheStatsByType = getCacheStatsByType;
 }
 
+// Declares Intents
 const client = new ClientWithCommands({
   intents: [
     GatewayIntentBits.Guilds,
@@ -56,6 +67,7 @@ const client = new ClientWithCommands({
   ],
 });
 
+// Loads event listeners.
 const eventsPath = path.join(__dirname, "events");
 const eventFiles = fs.readdirSync(eventsPath).filter((file) => {
   console.log("Event Loaded:", file);
@@ -66,7 +78,6 @@ for (const file of eventFiles) {
   const filePath = path.join(eventsPath, file);
   const eventModule = await import(pathToFileURL(filePath).href);
   const event = eventModule.default ?? eventModule;
-
   if (event.once) {
     client.once(event.name, (...args: any) => event.execute(...args));
   } else {
@@ -74,6 +85,7 @@ for (const file of eventFiles) {
   }
 }
 
+// Loads commands.
 const foldersPath = path.join(__dirname, "commands");
 const commandFolders = fs.readdirSync(foldersPath);
 
@@ -82,7 +94,6 @@ for (const folder of commandFolders) {
   const commandFiles = fs
     .readdirSync(commandsPath)
     .filter((file) => file.endsWith(".js"));
-
   for (const file of commandFiles) {
     const filePath = path.join(commandsPath, file);
     const commandModule = await import(pathToFileURL(filePath).href);
@@ -99,19 +110,26 @@ for (const folder of commandFolders) {
   }
 }
 
-// TODO: Add support for respect masked links setting.
-// TODO: Add support for ignore character setting.
-const ao3Links =
-  /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
-
+// Listens to message.
 client.on(Events.MessageCreate, async (message) => {
+  // Tells bot to ignore messages from other bots.
   if (message.author.bot) return;
 
-  const urls = message.content.replaceAll(">", "").match(ao3Links) ?? [];
-  if (!urls.length) return;
+  // Regex used to identify if AO3 links are in the message.
+  const ao3Links =
+    /https?:\/\/(?:www\.)?(?:archiveofourown\.org|ao3\.org)\/\S+/g;
 
-  for (const url of urls) {
-    try {
+  // Identifies if AO3 links are in message.
+  if (ao3Links.test(message.content) === true) {
+    /*
+		Creates an Array of AO3 links in the message and removes symbol used for
+		suppressing embeds from end of AO3 links.
+		*/
+    let urls = message.content.replaceAll(">", "").match(ao3Links)!;
+
+    // * Identifies what type of AO3 links are in message and responds.
+    for (const url of urls) {
+      // For works link that does not contain chapter information:
       if (url.includes("/works/") && !url.includes("/chapters/")) {
         await handleAo3Url({
           message,
@@ -121,9 +139,7 @@ client.on(Events.MessageCreate, async (message) => {
           authError,
         });
         continue;
-      }
-
-      if (url.includes("/users/")) {
+      } if (url.includes("/users/")) {
         const waitingMsg = await message.channel.send("⏳ Fetching from AO3...");
         try {
           const username = getUsernameFromUrl(url);
@@ -142,92 +158,88 @@ client.on(Events.MessageCreate, async (message) => {
           await waitingMsg.edit("⚠️ Something went wrong fetching that from AO3.").catch(() => {});
         }
         continue;
-      }
-
-      if (url.includes("/series/")) {
+      } if  (url.includes("/series/")) {
         await handleAo3Url({
           message,
           url,
           ao3Limiter,
           embedFn: seriesEmbed,
         });
-        continue;
-      }
+        // For url with chapters in link:
+      } if (url.includes("/chapters/")) {
+        // ask user if they want a work or chapter embed;
+        const question = "Would you like a work or chapter embed?";
 
-      if (url.includes("/chapters/")) {
-        await handleChapterLink(message, url);
-        continue;
+        const work = new ButtonBuilder()
+          .setCustomId("work")
+          .setLabel("Work")
+          .setStyle(ButtonStyle.Secondary);
+
+        const chapter = new ButtonBuilder()
+          .setCustomId("chapter")
+          .setLabel("Chapter")
+          .setStyle(ButtonStyle.Secondary);
+
+        const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          work,
+          chapter,
+        );
+
+        const botReply = await message.channel.send({
+          content: question,
+          components: [buttons],
+        });
+
+        const collector = botReply.createMessageComponentCollector({
+          componentType: ComponentType.Button,
+          time: 15_000,
+        });
+
+        // Get the button interaction from user
+        collector.on("collect", async (buttonInteraction) => {
+          // User selects work
+          if (
+            buttonInteraction.user.id === message.author.id &&
+            buttonInteraction.customId === "work"
+          ) {
+            botReply.delete();
+            await handleAo3Url({
+              message,
+              url,
+              ao3Limiter,
+              embedFn: worksEmbed,
+              authError,
+            });
+            // User selects chapter
+          } if (
+            buttonInteraction.user.id === message.author.id &&
+            buttonInteraction.customId === "chapter"
+          ) {
+            botReply.delete();
+            await handleAo3Url({
+              message,
+              url,
+              ao3Limiter,
+              embedFn: chapterEmbed,
+              authError,
+            });
+
+            // Reply to non-OP using buttons.
+          } else {
+            buttonInteraction.reply({
+              content: `These buttons aren't for you!`,
+              flags: MessageFlags.Ephemeral,
+            });
+          }
+        });
+
+        collector.on("end", (collected) => {
+          console.log(`Collected ${collected.size} interactions.`);
+        });
       }
-    } catch (error) {
-      console.error("Failed to process AO3 URL:", url, error);
     }
   }
 });
 
-async function handleChapterLink(message: any, url: string) {
-  const question = "Would you like a work or chapter embed?";
-
-  const workButton = new ButtonBuilder()
-    .setCustomId("work")
-    .setLabel("Work")
-    .setStyle(ButtonStyle.Secondary);
-
-  const chapterButton = new ButtonBuilder()
-    .setCustomId("chapter")
-    .setLabel("Chapter")
-    .setStyle(ButtonStyle.Secondary);
-
-  const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    workButton,
-    chapterButton,
-  );
-
-  const botReply = await message.channel.send({
-    content: question,
-    components: [buttons],
-  });
-
-  const collector = botReply.createMessageComponentCollector({
-    componentType: ComponentType.Button,
-    time: 15_000,
-  });
-
-  collector.on("collect", async (buttonInteraction: ButtonInteraction) => {
-    if (buttonInteraction.user.id !== message.author.id) {
-      await buttonInteraction.reply({
-        content: "These buttons aren't for you!",
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
-
-    botReply.delete();
-
-    if (buttonInteraction.customId === "work") {
-      await handleAo3Url({
-        message,
-        url,
-        ao3Limiter,
-        embedFn: worksEmbed,
-        authError,
-      });
-      return;
-    }
-
-    if (buttonInteraction.customId === "chapter") {
-      await handleAo3Url({
-        message,
-        url,
-        ao3Limiter,
-        embedFn: chapterEmbed,
-        authError,
-      });
-    }
-  });
-
-  collector.on("end", (collected: Collection<string, ButtonInteraction>) => {
-    console.log(`Collected ${collected.size} interactions.`);
-  });
-}
-
-client.login(process.env.TOKEN);
+// Login to Discord and start bot.
+client.login(token);
