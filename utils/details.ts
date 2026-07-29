@@ -15,6 +15,11 @@ type WorkSummarySource = {
   summary?: string | null;
 } | null;
 
+type WorkStartNotesSource = {
+  locked?: boolean;
+  startNotes?: string | null;
+} | null;
+
 export function formatWorkSeries(work: WorkSeriesSource): string {
   if (work?.locked || !work?.series?.length) return "";
 
@@ -30,4 +35,11 @@ export function formatWorkSummary(work: WorkSummarySource): string {
 
   const summary = htmlToMarkdown(work.summary?.trim());
   return summary || "N/A";
+}
+
+export function formatWorkStartNotes(work: WorkStartNotesSource): string {
+  if (work?.locked || !work) return "";
+
+  const notes = htmlToMarkdown(work.startNotes?.trim());
+  return notes || "N/A";
 }

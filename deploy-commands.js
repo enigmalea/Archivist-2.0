@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 // nothing (and sets no env vars, with no error) if this script is ever
 // invoked directly from inside dist/ rather than via `npm run register`
 // from the project root.
-dotenv.config({ path: path.join(__dirname, "..", ".env") });
+dotenv.config({ path: path.join(__dirname, "..", ".env"), quiet: true });
 
 const { deployCommands } = await import("./utils/deployCommands.js");
 

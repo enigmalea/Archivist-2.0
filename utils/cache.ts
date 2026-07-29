@@ -1,4 +1,4 @@
-import { getSeries, getUser, getWork, getWorkContent } from "@fujocoded/ao3.js";
+import { getSeries, getUser, getWork, getWorkContent, getWorkWithChapters } from "@fujocoded/ao3.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -14,10 +14,18 @@ type WorkData = Awaited<ReturnType<typeof getWork>>;
 type SeriesData = Awaited<ReturnType<typeof getSeries>>;
 type UserData = Awaited<ReturnType<typeof getUser>>;
 type WorkContentData = Awaited<ReturnType<typeof getWorkContent>>;
+type WorkWithChaptersData = Awaited<ReturnType<typeof getWorkWithChapters>>;
 
-class Cache<T> {
+// How long a failed fetch is remembered before we let a new attempt through.
+// This doesn't retry anything — it just stops repeated posts of the same
+// (currently-failing) link from each triggering a fresh AO3 request, which
+// only makes an active rate-limit/Cloudflare block worse.
+const FAILURE_TTL_MS = 30 * 1000;
+
+export class Cache<T> {
   private readonly store = new Map<CacheKey, CacheEntry<T>>();
   private readonly inFlight = new Map<CacheKey, Promise<T>>();
+  private readonly failures = new Map<CacheKey, number>();
 
   constructor(private readonly ttlMs: number = HOUR_MS) {}
 
@@ -44,6 +52,11 @@ class Cache<T> {
     const cached = this.get(key);
     if (cached !== null) return cached;
 
+    const failedUntil = this.failures.get(key);
+    if (failedUntil && Date.now() < failedUntil) {
+      throw new Error("AO3 request recently failed for this item; try again in a bit.");
+    }
+
     const pending = this.inFlight.get(key);
     if (pending) return pending;
 
@@ -51,7 +64,11 @@ class Cache<T> {
       try {
         const value = await loader();
         this.set(key, value);
+        this.failures.delete(key);
         return value;
+      } catch (error) {
+        this.failures.set(key, Date.now() + FAILURE_TTL_MS);
+        throw error;
       } finally {
         this.inFlight.delete(key);
       }
@@ -64,6 +81,7 @@ class Cache<T> {
   clear(): void {
     this.store.clear();
     this.inFlight.clear();
+    this.failures.clear();
   }
 }
 
@@ -71,6 +89,7 @@ export const workCache = new Cache<WorkData>(HOUR_MS);
 export const seriesCache = new Cache<SeriesData>(HOUR_MS);
 export const workChapterCache = new Cache<WorkData>(HOUR_MS);
 export const workContentCache = new Cache<WorkContentData>(HOUR_MS);
+export const workWithChaptersCache = new Cache<WorkWithChaptersData>(HOUR_MS);
 export const userCache = new Cache<UserData>(DAY_MS);
 
 export async function cachedGetWork(workId: CacheKey) {
@@ -87,6 +106,12 @@ export async function cachedGetUser(username: string) {
 
 function chapterCacheKey(workId: CacheKey, chapterId?: number | string | null): string {
   return `${workId}:${chapterId ?? "default"}`;
+}
+
+export async function cachedGetWorkWithChapters(workId: CacheKey) {
+  return workWithChaptersCache.getOrSet(workId, () =>
+    getWorkWithChapters({ workId }),
+  );
 }
 
 export async function cachedGetWorkChapter(workId: CacheKey, chapterId?: number) {
