@@ -2,7 +2,7 @@ import { ShardingManager } from "discord.js";
 import dotenv from "dotenv";
 import { getBotCredentials } from "./utils/botEnv.ts";
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const { token, env } = getBotCredentials();
 console.log(`Starting ShardingManager in "${env}" mode.`);

@@ -12,6 +12,7 @@ import { ao3SeriesError } from "../../utils/errors.ts";
 import { cachedGetSeries } from "../../utils/cache.ts";
 import { constructCreators } from "../../utils/creators.ts";
 import { getSeriesIdFromUrl } from "../../utils/urls.ts";
+import { getSeriesUrl } from "@fujocoded/ao3.js/urls";
 
 const MAX_DESCRIPTION = 4096;
 const MAX_WORKS_PER_PAGE = 10;
@@ -25,7 +26,29 @@ type ListSession = {
   pageBoundaries: number[];
 };
 
+// Keyed by seriesId, not ownerId — the series ID now travels in the
+// button's customId (see buildListComponents), so this is purely a fast
+// path to skip recomputing page boundaries on the next click, not the only
+// copy of the data. On a miss (TTL-less cache evicted, bot restarted, or
+// simply never populated because a page was reached by scrolling from
+// someone else's button) getListSession rebuilds it from AO3 via the
+// seriesId alone. Keying by seriesId also means two different guilds/users
+// listing the same series share one cache entry instead of duplicating it.
 const sessionCache = new Map<string, ListSession>();
+
+async function getListSession(seriesId: string): Promise<ListSession> {
+  const cached = sessionCache.get(seriesId);
+  if (cached) return cached;
+
+  const series = await cachedGetSeries(seriesId);
+  const authors = constructCreators(series.authors, series.authors?.[0]?.anonymous);
+  const seriesURL = getSeriesUrl({ seriesId });
+  const pageBoundaries = computePageBoundaries(series, authors);
+
+  const session: ListSession = { series, seriesURL, authors, pageBoundaries };
+  sessionCache.set(seriesId, session);
+  return session;
+}
 
 function computePageBoundaries(
   series: SeriesData,
@@ -89,16 +112,17 @@ function buildListComponents(
   ownerId: string,
   page: number,
   pageCount: number,
+  seriesId: string,
 ) {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId(`list:${ownerId}:${page - 1}`)
+        .setCustomId(`list:${ownerId}:${page - 1}:${seriesId}`)
         .setLabel("Previous")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(page <= 0),
       new ButtonBuilder()
-        .setCustomId(`list:${ownerId}:${page + 1}`)
+        .setCustomId(`list:${ownerId}:${page + 1}:${seriesId}`)
         .setLabel("Next")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(page >= pageCount - 1),
@@ -131,33 +155,22 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   await interaction.deferReply();
 
   const seriesId = getSeriesIdFromUrl(seriesURL);
-  const series = await cachedGetSeries(seriesId);
-  const seriesAuthors = constructCreators(
-    series.authors,
-    series.authors?.[0]?.anonymous,
-  );
-
-  const pageBoundaries = computePageBoundaries(series, seriesAuthors);
-
-  sessionCache.set(interaction.user.id, {
-    series,
-    seriesURL,
-    authors: seriesAuthors,
-    pageBoundaries,
-  });
+  const session = await getListSession(seriesId);
 
   const { embed, page, pageCount } = buildListEmbed(
-    series,
-    seriesURL,
-    seriesAuthors,
-    pageBoundaries,
+    session.series,
+    session.seriesURL,
+    session.authors,
+    session.pageBoundaries,
     0,
   );
 
   await interaction.editReply({
     embeds: [embed],
     components:
-      pageCount > 1 ? buildListComponents(interaction.user.id, page, pageCount) : [],
+      pageCount > 1
+        ? buildListComponents(interaction.user.id, page, pageCount, seriesId)
+        : [],
   });
 };
 
@@ -167,7 +180,7 @@ export const handleListButtonInteraction = async (
   const parts = interaction.customId.split(":");
   if (parts[0] !== "list") return false;
 
-  const [, ownerId, pageText] = parts;
+  const [, ownerId, pageText, seriesId] = parts;
 
   if (interaction.user.id !== ownerId) {
     await interaction.reply({
@@ -178,14 +191,7 @@ export const handleListButtonInteraction = async (
     return true;
   }
 
-  const session = sessionCache.get(ownerId);
-  if (!session) {
-    await interaction.reply({
-      content: "This list has expired. Please run `/list` again.",
-      flags: 64,
-    });
-    return true;
-  }
+  const session = await getListSession(seriesId);
 
   const page = parseInt(pageText, 10) || 0;
   const { embed, page: safePage, pageCount } = buildListEmbed(
@@ -198,7 +204,7 @@ export const handleListButtonInteraction = async (
 
   await interaction.update({
     embeds: [embed],
-    components: buildListComponents(ownerId, safePage, pageCount),
+    components: buildListComponents(ownerId, safePage, pageCount, seriesId),
   });
 
   return true;

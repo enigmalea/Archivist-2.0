@@ -6,7 +6,10 @@ import { mysqlTable as table } from "drizzle-orm/mysql-core";
 
 /**
  * One row per guild. Guild-wide bot behavior — not tied to a specific
- * embed type (work vs chapter).
+ * embed type (work vs chapter) — plus the "general", "gallery", "ratings"
+ * and "restrictions" categories from the settings panel (utils/embedFields.ts),
+ * which are themselves inherently one-per-guild rather than one-per-embed-type,
+ * so they live here rather than in one of the *_field_settings tables below.
  */
 export const guildSettings = table("guild_settings", {
   id: t.int().primaryKey().autoincrement(),
@@ -25,41 +28,183 @@ export const guildSettings = table("guild_settings", {
   // 1.0 behavior on migration.
   respondToMaskedLinks: t.boolean().default(true).notNull(),
 
-  // Message cleanup behavior.
+  // Message cleanup behavior. deleteOriginalLink doubles as the settings
+  // panel's General -> "Delete original message with link" toggle.
   deleteOriginalLink: t.boolean().default(false).notNull(),
   deleteOnUpdate: t.boolean().default(false).notNull(),
   deleteOnError: t.boolean().default(false).notNull(),
   deleteOnDownload: t.boolean().default(false).notNull(),
   deleteOnChapter: t.boolean().default(false).notNull(),
 
+  // General category.
+  legacyWorkEmbed: t.boolean().default(false).notNull(),
+
+  // Gallery category.
+  galleryEnabled: t.boolean().default(true).notNull(),
+  galleryNsfwWarningMature: t.boolean().default(true).notNull(),
+  galleryNsfwWarningExplicit: t.boolean().default(true).notNull(),
+
+  // Ratings category — a work/chapter with a disallowed rating is blocked
+  // from being posted at all (see isRatingAllowed in utils/embedFields.ts).
+  allowRatingNotRated: t.boolean().default(true).notNull(),
+  allowRatingGeneralAudiences: t.boolean().default(true).notNull(),
+  allowRatingTeenAndUpAudiences: t.boolean().default(true).notNull(),
+  allowRatingMature: t.boolean().default(true).notNull(),
+  allowRatingExplicit: t.boolean().default(true).notNull(),
+
+  // Restrictions category — Archive Warning blocklist (findDisallowedWarning
+  // in utils/embedFields.ts). The freeform Additional Tags blocklist lives
+  // in the separate blocked_tags table below since it isn't a fixed set.
+  allowWarningGraphicViolence: t.boolean().default(true).notNull(),
+  allowWarningMajorCharacterDeath: t.boolean().default(true).notNull(),
+  allowWarningNoWarningsApply: t.boolean().default(true).notNull(),
+  allowWarningNoncon: t.boolean().default(true).notNull(),
+  allowWarningUnderage: t.boolean().default(true).notNull(),
+  allowWarningChooseNotToWarn: t.boolean().default(true).notNull(),
+
   createdAt: t.timestamp().defaultNow().notNull(),
   updatedAt: t.timestamp().defaultNow().onUpdateNow().notNull(),
 });
 
 /**
- * One row per (guild, embedType). Replaces the old flat Fan/cFan,
- * Rel/cRel, etc. column pairs — instead of 6 toggles duplicated across
- * 12 columns, it's 6 columns with 2 rows per guild (work + chapter).
+ * One row per guild. Work-embed field visibility + length limits — the
+ * "work-stats"/"work-tags"/"work-summary" categories in the settings panel
+ * are one table here since that 3-way split only exists to fit each
+ * category under Discord's 10-option CheckboxGroup cap in the UI, not
+ * because they're separate data.
  */
-export const embedFieldSettings = table(
-  "embed_field_settings",
+export const workFieldSettings = table("work_field_settings", {
+  id: t.int().primaryKey().autoincrement(),
+  guildSettingsId: t.int()
+    .notNull()
+    .unique()
+    .references((): AnyMySqlColumn => guildSettings.id, { onDelete: "cascade" }),
+
+  // work-stats
+  showWords: t.boolean().default(true).notNull(),
+  showChapters: t.boolean().default(true).notNull(),
+  showLanguage: t.boolean().default(true).notNull(),
+  showPublished: t.boolean().default(true).notNull(),
+  showUpdated: t.boolean().default(true).notNull(),
+  showStatus: t.boolean().default(true).notNull(),
+  showRating: t.boolean().default(true).notNull(),
+  showWarnings: t.boolean().default(true).notNull(),
+  showCategory: t.boolean().default(true).notNull(),
+
+  // work-tags
+  showFandoms: t.boolean().default(true).notNull(),
+  fandomsMaxLength: t.int().default(1024).notNull(),
+  showRelationships: t.boolean().default(true).notNull(),
+  relationshipsMaxLength: t.int().default(1024).notNull(),
+  showCharacters: t.boolean().default(true).notNull(),
+  charactersMaxLength: t.int().default(1024).notNull(),
+  showTags: t.boolean().default(true).notNull(),
+  tagsMaxLength: t.int().default(1024).notNull(),
+
+  // work-summary
+  showSummary: t.boolean().default(true).notNull(),
+  summaryMaxLength: t.int().default(3000).notNull(),
+});
+
+/**
+ * One row per guild. Chapter-embed field visibility + length limits.
+ */
+export const chapterFieldSettings = table("chapter_field_settings", {
+  id: t.int().primaryKey().autoincrement(),
+  guildSettingsId: t.int()
+    .notNull()
+    .unique()
+    .references((): AnyMySqlColumn => guildSettings.id, { onDelete: "cascade" }),
+
+  showWords: t.boolean().default(true).notNull(),
+  showChapters: t.boolean().default(true).notNull(),
+  showRating: t.boolean().default(true).notNull(),
+  showPublished: t.boolean().default(true).notNull(),
+  showUpdated: t.boolean().default(true).notNull(),
+  showStatus: t.boolean().default(true).notNull(),
+  showWarnings: t.boolean().default(true).notNull(),
+  showSummary: t.boolean().default(true).notNull(),
+  summaryMaxLength: t.int().default(1024).notNull(),
+  // This chapter's own beginning/end author notes, not the work's.
+  showNotes: t.boolean().default(true).notNull(),
+  notesMaxLength: t.int().default(1024).notNull(),
+
+  // Thumbnail: its own settings category (see EMBED_FIELD_CATEGORIES in
+  // utils/embedFields.ts) rather than bundled into the general Fields
+  // checkbox group, so it can carry its own rating-based exclusions instead
+  // of being a single flat on/off toggle. The chapter's first embedded
+  // image, shown as a small thumbnail.
+  showThumbnail: t.boolean().default(true).notNull(),
+  hideThumbnailOnMature: t.boolean().default(false).notNull(),
+  hideThumbnailOnExplicit: t.boolean().default(false).notNull(),
+});
+
+/**
+ * One row per guild. Series-embed field visibility + length limits.
+ */
+export const seriesFieldSettings = table("series_field_settings", {
+  id: t.int().primaryKey().autoincrement(),
+  guildSettingsId: t.int()
+    .notNull()
+    .unique()
+    .references((): AnyMySqlColumn => guildSettings.id, { onDelete: "cascade" }),
+
+  showAuthors: t.boolean().default(true).notNull(),
+  showComplete: t.boolean().default(true).notNull(),
+  showWorkCount: t.boolean().default(true).notNull(),
+  showWordCount: t.boolean().default(true).notNull(),
+  showBookmarks: t.boolean().default(true).notNull(),
+  showStarted: t.boolean().default(true).notNull(),
+  showUpdated: t.boolean().default(true).notNull(),
+  showNotes: t.boolean().default(true).notNull(),
+  notesMaxLength: t.int().default(1024).notNull(),
+  showDescription: t.boolean().default(true).notNull(),
+  descriptionMaxLength: t.int().default(1024).notNull(),
+});
+
+/**
+ * One row per guild. User-profile-embed field visibility + length limits.
+ */
+export const userFieldSettings = table("user_field_settings", {
+  id: t.int().primaryKey().autoincrement(),
+  guildSettingsId: t.int()
+    .notNull()
+    .unique()
+    .references((): AnyMySqlColumn => guildSettings.id, { onDelete: "cascade" }),
+
+  showPseuds: t.boolean().default(true).notNull(),
+  showJoined: t.boolean().default(true).notNull(),
+  showLocation: t.boolean().default(true).notNull(),
+  showBirthday: t.boolean().default(true).notNull(),
+  showWorks: t.boolean().default(true).notNull(),
+  showSeries: t.boolean().default(true).notNull(),
+  showCollections: t.boolean().default(true).notNull(),
+  showBookmarks: t.boolean().default(true).notNull(),
+  showGifts: t.boolean().default(true).notNull(),
+  // Paginated if long — bioMaxLength governs the profile page's inline cutoff
+  // before it spills onto its own paginated bio page(s), see userEmbed.ts.
+  showBio: t.boolean().default(true).notNull(),
+  bioMaxLength: t.int().default(6000).notNull(),
+});
+
+/**
+ * Freeform Additional-Tags blocklist (Restrictions panel) — one row per
+ * blocked tag rather than a JSON array, since these are matched with a
+ * case-insensitive substring check against every tag on every work
+ * (utils/restrictions.ts's findBlockedTag), not looked up by exact key like
+ * the toggle/length maps above.
+ */
+export const blockedTags = table(
+  "blocked_tags",
   {
     id: t.int().primaryKey().autoincrement(),
     guildSettingsId: t.int()
       .notNull()
       .references((): AnyMySqlColumn => guildSettings.id, { onDelete: "cascade" }),
-    embedType: t.mysqlEnum(["work", "chapter"]).notNull(),
-
-    showPublishedInfo: t.boolean().default(true).notNull(),
-    showFandoms: t.boolean().default(true).notNull(),
-    showRelationships: t.boolean().default(true).notNull(),
-    showCharacters: t.boolean().default(true).notNull(),
-    showAdditionalTags: t.boolean().default(true).notNull(),
-    showSummary: t.boolean().default(true).notNull(),
-    summaryLength: t.int().default(700).notNull(),
+    tag: t.varchar({ length: 100 }).notNull(),
   },
   (table) => [
-    t.unique("unique_guild_embed_type").on(table.guildSettingsId, table.embedType),
+    t.index("blocked_tags_guild_idx").on(table.guildSettingsId),
   ],
 );
 
@@ -82,10 +227,19 @@ export const redirectRules = table(
     destinationId: t.varchar({ length: 20 }).notNull(),
     destinationType: t.mysqlEnum(["channel", "forum", "thread"]).notNull(),
 
-    // Shape: { rating?: string, fandom?: string[], type?: "work" | "series" | "user" | "chapter" }
-    // Kept as JSON since the filter shape is variable and fandom may be
-    // multi-value; not queried via SQL WHERE, just read + matched in app code.
+    // Shape: { rating?: string, fandom?: string, type?: "work" | "series" | "user" | "chapter" }
+    // Kept as JSON since the filter shape is variable; not queried via SQL
+    // WHERE, just read + matched in app code.
     filters: t.json().notNull(),
+
+    // Set the first time a "forum" destination rule redirects a link — the
+    // thread Discord created for it, so later matches post into that same
+    // thread instead of creating a new one every time. Null for
+    // channel/thread destinations, and for forum rules that haven't fired
+    // yet. Kept as its own column (not folded into `filters`) since it's
+    // mutable runtime state assigned by the bot, not a match condition set
+    // by the guild admin.
+    forumThreadId: t.varchar({ length: 20 }),
 
     createdAt: t.timestamp().defaultNow().notNull(),
   },
@@ -96,14 +250,46 @@ export const redirectRules = table(
 
 // --- Relations (for query convenience) ---
 
-export const guildSettingsRelations = relations(guildSettings, ({ many }) => ({
-  embedFields: many(embedFieldSettings),
+export const guildSettingsRelations = relations(guildSettings, ({ one, many }) => ({
+  workFieldSettings: one(workFieldSettings),
+  chapterFieldSettings: one(chapterFieldSettings),
+  seriesFieldSettings: one(seriesFieldSettings),
+  userFieldSettings: one(userFieldSettings),
+  blockedTags: many(blockedTags),
   redirectRules: many(redirectRules),
 }));
 
-export const embedFieldSettingsRelations = relations(embedFieldSettings, ({ one }) => ({
+export const workFieldSettingsRelations = relations(workFieldSettings, ({ one }) => ({
   guild: one(guildSettings, {
-    fields: [embedFieldSettings.guildSettingsId],
+    fields: [workFieldSettings.guildSettingsId],
+    references: [guildSettings.id],
+  }),
+}));
+
+export const chapterFieldSettingsRelations = relations(chapterFieldSettings, ({ one }) => ({
+  guild: one(guildSettings, {
+    fields: [chapterFieldSettings.guildSettingsId],
+    references: [guildSettings.id],
+  }),
+}));
+
+export const seriesFieldSettingsRelations = relations(seriesFieldSettings, ({ one }) => ({
+  guild: one(guildSettings, {
+    fields: [seriesFieldSettings.guildSettingsId],
+    references: [guildSettings.id],
+  }),
+}));
+
+export const userFieldSettingsRelations = relations(userFieldSettings, ({ one }) => ({
+  guild: one(guildSettings, {
+    fields: [userFieldSettings.guildSettingsId],
+    references: [guildSettings.id],
+  }),
+}));
+
+export const blockedTagsRelations = relations(blockedTags, ({ one }) => ({
+  guild: one(guildSettings, {
+    fields: [blockedTags.guildSettingsId],
     references: [guildSettings.id],
   }),
 }));
@@ -115,135 +301,3 @@ export const redirectRulesRelations = relations(redirectRules, ({ one }) => ({
   }),
 }));
 
-/**
- * Embed tracking tables — one per embed type.
- *
- * These intentionally have NO foreign key to guild_settings. An accidental
- * bot kick should not kill active embeds; if the bot is re-invited, the
- * stored IDs are still valid and refresh will still work.
- *
- * channelId is required on all four: Discord's API needs both channelId +
- * messageId to locate and edit a message. messageId alone is not globally
- * resolvable.
- */
-
-export const workEmbeds = table(
-  "work_embeds",
-  {
-    id: t.varchar({ length: 36 }).primaryKey(), // UUID
-    guildId: t.varchar({ length: 20 }).notNull(),
-    channelId: t.varchar({ length: 20 }).notNull(),
-    messageId: t.varchar({ length: 20 }).notNull().unique(),
-    workId: t.varchar({ length: 20 }).notNull(),
-    createdAt: t.timestamp().defaultNow().notNull(),
-  },
-  (table) => [
-    t.index("work_embeds_guild_idx").on(table.guildId),
-  ],
-);
-
-export const chapterEmbeds = table(
-  "chapter_embeds",
-  {
-    id: t.varchar({ length: 36 }).primaryKey(), // UUID
-    guildId: t.varchar({ length: 20 }).notNull(),
-    channelId: t.varchar({ length: 20 }).notNull(),
-    messageId: t.varchar({ length: 20 }).notNull().unique(),
-    workId: t.varchar({ length: 20 }).notNull(),
-    chapterId: t.varchar({ length: 20 }).notNull(),
-    createdAt: t.timestamp().defaultNow().notNull(),
-  },
-  (table) => [
-    t.index("chapter_embeds_guild_idx").on(table.guildId),
-  ],
-);
-
-export const seriesEmbeds = table(
-  "series_embeds",
-  {
-    id: t.varchar({ length: 36 }).primaryKey(), // UUID
-    guildId: t.varchar({ length: 20 }).notNull(),
-    channelId: t.varchar({ length: 20 }).notNull(),
-    messageId: t.varchar({ length: 20 }).notNull().unique(),
-    seriesId: t.varchar({ length: 20 }).notNull(),
-    createdAt: t.timestamp().defaultNow().notNull(),
-  },
-  (table) => [
-    t.index("series_embeds_guild_idx").on(table.guildId),
-  ],
-);
-
-export const userEmbeds = table(
-  "user_embeds",
-  {
-    id: t.varchar({ length: 36 }).primaryKey(), // UUID
-    guildId: t.varchar({ length: 20 }).notNull(),
-    channelId: t.varchar({ length: 20 }).notNull(),
-    messageId: t.varchar({ length: 20 }).notNull().unique(),
-    username: t.varchar({ length: 255 }).notNull(),
-    createdAt: t.timestamp().defaultNow().notNull(),
-  },
-  (table) => [
-    t.index("user_embeds_guild_idx").on(table.guildId),
-  ],
-);
-
-/**
- * Embed message index — one row per bot-posted embed message, regardless
- * of type. Exists so:
- *   1. MessageDelete/MessageDeleteBulk handlers can resolve messageId ->
- *      embedType in a single query, without hitting all four embed tables
- *      or depending on Discord's message cache.
- *   2. The 30-day post-removal purge job can delete all of a guild's
- *      indexed messages directly by guildId, without joining through
- *      four separate embed tables first.
- *
- * No FK to guild_settings (same reasoning as the four embed tables —
- * accidental kick should not kill active embeds; the purge job is what
- * eventually cleans these up, on its own 30-day timer, not a cascade).
- *
- * Writes: insert a row here alongside every insert into work/chapter/
- * series/user embed tables (always in a transaction).
- * Deletes: when a message delete event fires, look up the type here first,
- * then delete from the appropriate embed table + this index together.
- */
-export const embedMessageIndex = table(
-  "embed_message_index",
-  {
-    messageId: t.varchar({ length: 20 }).primaryKey(),
-    guildId: t.varchar({ length: 20 }).notNull(),
-    embedType: t.mysqlEnum(["work", "chapter", "series", "user"]).notNull(),
-  },
-  (table) => [
-    t.index("embed_message_index_guild_idx").on(table.guildId),
-  ],
-);
-
-/**
- * Tombstone table: tracks when a guild was removed (bot kicked), so the
- * 30-day retention window for that guild's embeds can be measured. Not
- * a soft-delete flag on guild_settings itself — guild_settings is hard-
- * deleted on removal (see guildDelete handler), so this is the only
- * record that a removal happened at all.
- *
- * Lifecycle:
- *   - guildDelete fires -> insert a row here, then delete guild_settings
- *     (cascades to embed_field_settings + redirect_rules). Embed tables
- *     are untouched at this point.
- *   - guildCreate fires for a guildId with a row here -> delete the row
- *     (rejoining within the window cancels the pending purge).
- *   - Daily job -> for rows older than 30 days: delete matching rows from
- *     work_embeds/chapter_embeds/series_embeds/user_embeds/
- *     embed_message_index (all filterable directly by guildId now), then
- *     delete the row here.
- */
-export const removedGuilds = table(
-  "removed_guilds",
-  {
-    guildId: t.varchar({ length: 20 }).primaryKey(),
-    removedAt: t.timestamp().defaultNow().notNull(),
-  },
-  (table) => [
-    t.index("removed_guilds_removed_at_idx").on(table.removedAt),
-  ],
-);

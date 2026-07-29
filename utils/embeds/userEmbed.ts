@@ -1,15 +1,17 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
 
 import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetUser } from "../cache.ts";
 import { chunkText } from "../chunkText.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
+import { getFieldMaxLength, getGuildSettingsBundle, isFieldEnabled } from "../embedFields.ts";
+import { truncateText } from "../truncate.ts";
 
 import type { ButtonInteraction, EmbedBuilder } from "discord.js";
 
 const BIO_PAGE_LENGTH = 750;
 const BIO_INLINE_THRESHOLD = 300;
-const BIO_TRAILING_MERGE_THRESHOLD = 200;
+const BIO_TRAILING_MERGE_THRESHOLD = 350;
 const MAX_HR_PER_PAGE = 2;
 
 function padInlineRow(embed: EmbedBuilder, fieldCount: number) {
@@ -96,12 +98,19 @@ function mergeShortTrailingChunk(
 
 export async function buildUserEmbedPages(
   username: string,
+  guildId?: string | null,
 ): Promise<EmbedBuilder[]> {
   const user = await cachedGetUser(username);
   const userURL = `https://archiveofourown.org/users/${user.username}`;
 
+  const bundle = await getGuildSettingsBundle(guildId);
+  const enabled = (key: string) => isFieldEnabled(bundle, "user", key);
+
   const header = user.header ? `# ${user.header}` : null;
-  const bio = htmlToMarkdown(user.bioHtml);
+  const rawBio = enabled("bio") ? htmlToMarkdown(user.bioHtml) : null;
+  const bio = rawBio
+    ? truncateText(rawBio, getFieldMaxLength(bundle, "user", "bio"))
+    : rawBio;
 
   const profilePage = ao3Embed()
     .setTitle(username)
@@ -109,62 +118,68 @@ export async function buildUserEmbedPages(
     .setThumbnail(user.icon)
     .setDescription(header);
 
-  profilePage.addFields({ name: "Pseuds:", value: user.pseuds, inline: false });
+  if (enabled("pseuds")) {
+    profilePage.addFields({ name: "Pseuds:", value: user.pseuds, inline: false });
+  }
 
-  const profileRow = [{ name: "Joined:", value: user.joined, inline: true }];
-  if (user.location) {
+  const profileRow: { name: string; value: string; inline: boolean }[] = [];
+  if (enabled("joined")) {
+    profileRow.push({ name: "Joined:", value: user.joined, inline: true });
+  }
+  if (user.location && enabled("location")) {
     profileRow.push({ name: "Location:", value: user.location, inline: true });
   }
-  if (user.birthday) {
+  if (user.birthday && enabled("birthday")) {
     profileRow.push({ name: "Birthday:", value: user.birthday, inline: true });
   }
-  profilePage.addFields(profileRow);
-  padInlineRow(profilePage, profileRow.length);
+  if (profileRow.length > 0) {
+    profilePage.addFields(profileRow);
+    padInlineRow(profilePage, profileRow.length);
+  }
 
-  profilePage.addFields(
+  const statsRow = [
+    { key: "works", name: "Works:", value: `[${user.works}](${userURL}/works)`, inline: true },
+    { key: "series", name: "Series:", value: `[${user.series}](${userURL}/series)`, inline: true },
     {
-      name: "Works:",
-      value: `[${user.works}](${userURL}/works)`,
-      inline: true,
-    },
-    {
-      name: "Series:",
-      value: `[${user.series}](${userURL}/series)`,
-      inline: true,
-    },
-    {
+      key: "collections",
       name: "Collections:",
       value: `[${user.collections}](${userURL}/collections)`,
       inline: true,
     },
     {
+      key: "bookmarks",
       name: "Bookmarks:",
       value: `[${user.bookmarks}](${userURL}/bookmarks)`,
       inline: true,
     },
-    {
-      name: "Gifts:",
-      value: `[${user.gifts}](${userURL}/gifts)`,
-      inline: true,
-    },
-  );
-  padInlineRow(profilePage, 5);
+    { key: "gifts", name: "Gifts:", value: `[${user.gifts}](${userURL}/gifts)`, inline: true },
+  ].filter((f) => enabled(f.key));
+
+  if (statsRow.length > 0) {
+    profilePage.addFields(statsRow.map(({ name, value, inline }) => ({ name, value, inline })));
+    padInlineRow(profilePage, statsRow.length);
+  }
 
   // Short or missing bios stay on the profile page instead of spending a
   // whole extra page on a couple lines of text.
   if (!bio || bio.length < BIO_INLINE_THRESHOLD) {
-    profilePage.addFields({
-      name: "​",
-      value: `${bio ?? "*This user does not have a bio.*"}`,
-      inline: false,
-    });
+    if (enabled("bio")) {
+      profilePage.addFields({
+        name: "​",
+        value: `${bio ?? "*This user does not have a bio.*"}`,
+        inline: false,
+      });
+    }
     return [profilePage];
   }
 
   const bioChunks = mergeShortTrailingChunk(
     pullSubheadersForward(
       splitBioByHr(bio, MAX_HR_PER_PAGE).flatMap((section) =>
-        chunkText(section, BIO_PAGE_LENGTH),
+        mergeShortTrailingChunk(
+          chunkText(section, BIO_PAGE_LENGTH),
+          BIO_TRAILING_MERGE_THRESHOLD,
+        ),
       ),
     ),
     BIO_TRAILING_MERGE_THRESHOLD,
@@ -210,24 +225,42 @@ export const handleUserEmbedButtonInteraction = async (
   if (parts[0] !== "user") return false;
 
   const [, ownerId, pageText, username] = parts;
-  if (interaction.user.id !== ownerId) {
-    await interaction.reply({
-      content:
-        "This profile panel belongs to someone else. Post the link yourself to get your own copy.",
-      flags: 64,
-    });
-    return true;
+  const isOwner = interaction.user.id === ownerId;
+
+  // Non-owners get their own ephemeral copy to page through instead of being
+  // turned away, so they don't have to repost the link to get a working embed.
+  if (isOwner) {
+    await interaction.deferUpdate();
+  } else {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   }
 
-  const pages = await buildUserEmbedPages(username);
-  const page = Math.min(
-    Math.max(Number.parseInt(pageText, 10) || 0, 0),
-    pages.length - 1,
-  );
+  try {
+    const pages = await buildUserEmbedPages(username, interaction.guildId);
+    const page = Math.min(
+      Math.max(Number.parseInt(pageText, 10) || 0, 0),
+      pages.length - 1,
+    );
 
-  await interaction.update({
-    embeds: [pages[page]],
-    components: buildUserEmbedComponents(ownerId, page, pages.length, username),
-  });
+    const componentOwnerId = isOwner ? ownerId : interaction.user.id;
+    await interaction.editReply({
+      embeds: [pages[page]],
+      components: buildUserEmbedComponents(
+        componentOwnerId,
+        page,
+        pages.length,
+        username,
+      ),
+    });
+  } catch (error) {
+    console.error(`Failed to refresh user embed for ${username}`, error);
+    await interaction
+      .editReply({
+        content: "⚠️ Something went wrong fetching that from AO3.",
+        embeds: [],
+        components: [],
+      })
+      .catch(() => {});
+  }
   return true;
 };

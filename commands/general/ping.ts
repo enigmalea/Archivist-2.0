@@ -5,12 +5,12 @@ export const data = new SlashCommandBuilder()
   .setDescription("Replies with the roundtrip latency of the bot.");
 
 export const execute = async (interaction: ChatInputCommandInteraction) => {
-  const sent = await interaction.reply({
+  const { resource } = await interaction.reply({
     content: "Pinging...",
-    fetchReply: true,
+    withResponse: true,
   });
 
-  const latency = sent.createdTimestamp - interaction.createdTimestamp;
+  const latency = resource!.message!.createdTimestamp - interaction.createdTimestamp;
 
   await interaction.editReply(`Pong! Roundtrip latency: ${latency}ms`);
 };
