@@ -1,13 +1,12 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
+import type { ButtonInteraction, EmbedBuilder } from "discord.js";
+import { getFieldMaxLength, getGuildSettingsBundle, isFieldEnabled } from "../embedFields.ts";
 
 import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetUser } from "../cache.ts";
 import { chunkText } from "../chunkText.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
-import { getFieldMaxLength, getGuildSettingsBundle, isFieldEnabled } from "../embedFields.ts";
 import { truncateText } from "../truncate.ts";
-
-import type { ButtonInteraction, EmbedBuilder } from "discord.js";
 
 const BIO_PAGE_LENGTH = 750;
 const BIO_INLINE_THRESHOLD = 300;
@@ -119,18 +118,18 @@ export async function buildUserEmbedPages(
     .setDescription(header);
 
   if (enabled("pseuds")) {
-    profilePage.addFields({ name: "Pseuds:", value: user.pseuds, inline: false });
+    profilePage.addFields({ name: "Pseuds", value: user.pseuds, inline: false });
   }
 
   const profileRow: { name: string; value: string; inline: boolean }[] = [];
   if (enabled("joined")) {
-    profileRow.push({ name: "Joined:", value: user.joined, inline: true });
+    profileRow.push({ name: "Joined", value: user.joined, inline: true });
   }
   if (user.location && enabled("location")) {
-    profileRow.push({ name: "Location:", value: user.location, inline: true });
+    profileRow.push({ name: "Location", value: user.location, inline: true });
   }
   if (user.birthday && enabled("birthday")) {
-    profileRow.push({ name: "Birthday:", value: user.birthday, inline: true });
+    profileRow.push({ name: "Birthday", value: user.birthday, inline: true });
   }
   if (profileRow.length > 0) {
     profilePage.addFields(profileRow);
@@ -138,21 +137,21 @@ export async function buildUserEmbedPages(
   }
 
   const statsRow = [
-    { key: "works", name: "Works:", value: `[${user.works}](${userURL}/works)`, inline: true },
-    { key: "series", name: "Series:", value: `[${user.series}](${userURL}/series)`, inline: true },
+    { key: "works", name: "Works", value: `[${user.works}](${userURL}/works)`, inline: true },
+    { key: "series", name: "Series", value: `[${user.series}](${userURL}/series)`, inline: true },
     {
       key: "collections",
-      name: "Collections:",
+      name: "Collections",
       value: `[${user.collections}](${userURL}/collections)`,
       inline: true,
     },
     {
       key: "bookmarks",
-      name: "Bookmarks:",
+      name: "Bookmarks",
       value: `[${user.bookmarks}](${userURL}/bookmarks)`,
       inline: true,
     },
-    { key: "gifts", name: "Gifts:", value: `[${user.gifts}](${userURL}/gifts)`, inline: true },
+    { key: "gifts", name: "Gifts", value: `[${user.gifts}](${userURL}/gifts)`, inline: true },
   ].filter((f) => enabled(f.key));
 
   if (statsRow.length > 0) {

@@ -1,4 +1,11 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from "discord.js";
+import type { ButtonInteraction, EmbedBuilder } from "discord.js";
+import {
+  FIELD_VALUE_HARD_CAP,
+  getFieldMaxLength,
+  getGuildSettingsBundle,
+  isFieldEnabled,
+} from "../embedFields.ts";
 import {
   chapterDisplay,
   formatCompletionStatus,
@@ -15,22 +22,14 @@ import {
   shipCategories,
 } from "../tags.ts";
 import { formatWorkSeries, formatWorkStartNotes, formatWorkSummary } from "../../utils/details.ts";
+import { getWorkDetailsFromUrl, getWorkUrl } from "@fujocoded/ao3.js/urls";
 
 import { ao3Embed } from "../baseEmbed.ts";
+import { authError } from "../errors.ts";
 import { cachedGetWork } from "../cache.ts";
 import { chunkText } from "../chunkText.ts";
 import { constructCreators } from "../creators.ts";
-import { authError } from "../errors.ts";
-import {
-  FIELD_VALUE_HARD_CAP,
-  getFieldMaxLength,
-  getGuildSettingsBundle,
-  isFieldEnabled,
-} from "../embedFields.ts";
-import { getWorkDetailsFromUrl, getWorkUrl } from "@fujocoded/ao3.js/urls";
 import { truncateText } from "../truncate.ts";
-
-import type { ButtonInteraction, EmbedBuilder } from "discord.js";
 
 type CacheKey = string | number;
 
@@ -79,7 +78,7 @@ async function computeWorkFieldData(workURL: string, guildId?: string | null) {
     { key: "words", name: "Words", value: work.words.toLocaleString("en-US"), inline: true },
     { key: "chapters", name: "Chapters", value: chapterDisplay(work), inline: true },
     { key: "language", name: "Language", value: work.language ?? "N/A", inline: true },
-    { key: "published", name: "Date Published", value: published, inline: true },
+    { key: "published", name: "Published", value: published, inline: true },
     { key: "updated", name: "Updated", value: updatedDate, inline: true },
     { key: "status", name: "Status", value: status, inline: true },
     { key: "rating", name: "Rating", value: rating, inline: true },

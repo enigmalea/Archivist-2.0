@@ -1,11 +1,11 @@
 import { formatCompletionStatus, startedDate, updatedAt } from "../statuses.ts";
+import { getFieldMaxLength, getGuildSettingsBundle, isFieldEnabled } from "../embedFields.ts";
 
 import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetSeries } from "../cache.ts";
 import { constructCreators } from "../creators.ts";
 import { getSeriesIdFromUrl } from "../urls.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
-import { getFieldMaxLength, getGuildSettingsBundle, isFieldEnabled } from "../embedFields.ts";
 import { truncateText } from "../truncate.ts";
 
 export const seriesEmbed = async (seriesURL: string, guildId?: string | null) => {
@@ -27,19 +27,19 @@ export const seriesEmbed = async (seriesURL: string, guildId?: string | null) =>
 
   const descriptionLines = [
     { key: "authors", line: `**Authors:** ${creators}` },
-    { key: "complete", line: `**Complete:** ${formatCompletionStatus(series)}` },
-    { key: "workCount", line: `**Works:** ${series.workCount.toLocaleString()}` },
-    { key: "wordCount", line: `**Total Word Count:** ${series.words.toLocaleString()}` },
-    { key: "bookmarks", line: `**Bookmarks:** ${series.bookmarks.toLocaleString()}` },
   ]
     .filter((f) => isFieldEnabled(bundle, "series", f.key))
     .map((f) => f.line)
     .join("\n");
 
   const fields = [
-    { key: "started", name: "Started:", value: startedDate(series), inline: true },
-    { key: "updated", name: "Updated:", value: updatedAt(series), inline: true },
-    { key: "notes", name: "Notes:", value: notes, inline: false },
+    { key: "started", name: "Started", value: startedDate(series), inline: true },
+    { key: "updated", name: "Updated", value: updatedAt(series), inline: true },
+    { key: "complete", name: "Status", value: `${formatCompletionStatus(series)}`, inline: true },
+		{ key: "workCount", name: "Works", value: `${series.workCount.toLocaleString()}`,  inline: true  },
+    { key: "wordCount", name: "Total Words", value: `${series.words.toLocaleString()}`, inline: true  },
+		{ key: "bookmarks", name: "Bookmarks", value: `${series.bookmarks.toLocaleString()}`, inline: false },
+    { key: "notes", name: "Notes", value: notes, inline: false },
     { key: "description", name: "Description", value: seriesDescription, inline: false },
   ].filter((f) => isFieldEnabled(bundle, "series", f.key));
 
