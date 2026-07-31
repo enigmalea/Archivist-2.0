@@ -82,7 +82,7 @@ async function reloadCommandFile(
 
   if (!("data" in newCommand) || !("execute" in newCommand)) {
     throw new Error(
-      `${path.basename(filePath)} is missing a required "data" or "execute" export.`,
+      `🛑 ${path.basename(filePath)} is missing a required "data" or "execute" export.`,
     );
   }
 
@@ -156,7 +156,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     console.error(error);
     const message = error instanceof Error ? error.message : String(error);
     await interaction.reply({
-      content: `There was an error while reloading command \`${commandName}\`:\n\`${message}\``,
+      content: `⚠️ There was an error while reloading command \`${commandName}\`:\n\`${message}\``,
       ephemeral: true,
     });
   }

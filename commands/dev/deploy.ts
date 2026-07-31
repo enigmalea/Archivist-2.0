@@ -45,6 +45,6 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
   } catch (error) {
     console.error(error);
     const message = error instanceof Error ? error.message : String(error);
-    await interaction.editReply({ content: `Deploy failed: ${message}` });
+    await interaction.editReply({ content: `🛑 Deploy failed: ${message}` });
   }
 };
