@@ -38,7 +38,7 @@ export const seriesEmbed = async (seriesURL: string, guildId?: string | null) =>
     { key: "complete", name: "Status", value: `${formatCompletionStatus(series)}`, inline: true },
 		{ key: "workCount", name: "Works", value: `${series.workCount.toLocaleString()}`,  inline: true  },
     { key: "wordCount", name: "Total Words", value: `${series.words.toLocaleString()}`, inline: true  },
-		{ key: "bookmarks", name: "Bookmarks", value: `${series.bookmarks.toLocaleString()}`, inline: false },
+		{ key: "bookmarks", name: "Bookmarks", value: `${Number.isFinite(series.bookmarks) ? series.bookmarks.toLocaleString() : "0"}`, inline: true },
     { key: "notes", name: "Notes", value: notes, inline: false },
     { key: "description", name: "Description", value: seriesDescription, inline: false },
   ].filter((f) => isFieldEnabled(bundle, "series", f.key));
