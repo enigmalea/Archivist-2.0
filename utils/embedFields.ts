@@ -67,7 +67,7 @@ export const EMBED_FIELD_CATEGORIES = {
       { key: "words", label: "Words", description: "Total word count of the work." },
       { key: "chapters", label: "Chapters", description: "Published / total chapter count." },
       { key: "language", label: "Language", description: "The work's language." },
-      { key: "published", label: "Date Published", description: "When the work was first posted." },
+      { key: "published", label: "Published", description: "When the work was first posted." },
       { key: "updated", label: "Updated", description: "When the work was last updated." },
       { key: "status", label: "Status", description: "Complete or Work in Progress." },
       { key: "rating", label: "Rating", description: "AO3 content rating (Explicit, Mature, etc.)." },
