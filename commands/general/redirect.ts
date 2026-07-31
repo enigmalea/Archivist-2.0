@@ -196,7 +196,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     } catch (error) {
       await interaction.reply({
         content:
-          error instanceof Error ? error.message : "Couldn't add that rule.",
+          error instanceof Error ? error.message : "⁉️ Couldn't add that rule.",
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -217,7 +217,7 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
     } catch (error) {
       await interaction.reply({
         content:
-          error instanceof Error ? error.message : "Couldn't remove that rule.",
+          error instanceof Error ? error.message : "⁉️ Couldn't remove that rule.",
         flags: MessageFlags.Ephemeral,
       });
     }
