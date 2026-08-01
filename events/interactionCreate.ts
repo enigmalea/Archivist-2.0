@@ -1,20 +1,20 @@
 import { BaseInteraction, Events } from "discord.js";
-
-import type { ClientWithCommands } from "../bot.ts";
-import { handleHelpButtonInteraction } from "../commands/general/help.ts";
-import { handleListButtonInteraction } from "../commands/general/list.ts";
-import {
-  handleWorkGalleryButtonInteraction,
-  handleWorkGallerySelectInteraction,
-} from "../utils/images.ts";
-import { handleUserEmbedButtonInteraction } from "../utils/embeds/userEmbed.ts";
-import { handleWorkEmbedButtonInteraction } from "../utils/embeds/worksEmbed.ts";
 import {
   handleRestrictionsModalSubmit,
   handleSettingsPanelButtonInteraction,
   handleSettingsPanelModalSubmit,
   handleSettingsPanelSelectInteraction,
 } from "../utils/settingsPanel.ts";
+import {
+  handleWorkGalleryButtonInteraction,
+  handleWorkGallerySelectInteraction,
+} from "../utils/images.ts";
+
+import type { ClientWithCommands } from "../bot.ts";
+import { handleHelpButtonInteraction } from "../commands/general/help.ts";
+import { handleListButtonInteraction } from "../commands/ao3/list.ts";
+import { handleUserEmbedButtonInteraction } from "../utils/embeds/userEmbed.ts";
+import { handleWorkEmbedButtonInteraction } from "../utils/embeds/worksEmbed.ts";
 
 export const name = Events.InteractionCreate;
 export const execute = async (interaction: BaseInteraction) => {
