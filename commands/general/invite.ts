@@ -3,6 +3,7 @@ import {
   EmbedBuilder,
   SlashCommandBuilder,
 } from "discord.js";
+
 import { stripIndents } from "common-tags";
 
 export const data = new SlashCommandBuilder()
@@ -15,11 +16,14 @@ const CLIENT_ID = process.env.CLIENT_ID_PROD;
 	if (!CLIENT_ID) {
 		throw new Error("Missing CLIENT_ID environment variable");
 	}
+
+	const botName = interaction.client.user?.username ?? "Archivist";
+
 	const inviteURL = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&scope=bot%20applications.commands&permissions=395137`;
 
 	const link = `## [Click to Invite](${inviteURL}))`;
 
-		const description = stripIndents`*Want to invite ${interaction.client.user?.username ?? "Archivist"} to your server? Use the link below!*
+		const description = stripIndents`*Want to invite ${botName} to your server? Use the link below!*
 
 		${link}`;
 
@@ -35,5 +39,3 @@ const CLIENT_ID = process.env.CLIENT_ID_PROD;
 
   await interaction.reply({ embeds: [inviteEmbed] });
 };
-
-}
