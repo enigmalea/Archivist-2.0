@@ -1,7 +1,7 @@
 import { getSeries, getUser, getWork, getWorkContent, getWorkWithChapters } from "@fujocoded/ao3.js";
 
 const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * HOUR_MS;
+const DAY_MS = 3 * HOUR_MS;
 
 type CacheKey = string | number;
 

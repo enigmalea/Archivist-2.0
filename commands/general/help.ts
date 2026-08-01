@@ -35,11 +35,13 @@ type CommandJson = {
   }>;
 };
 
-// One row in the help embed: a command name plus its description and subcommands.
+// One row in the help embed: a command name plus its description, subcommands,
+// and the folder (category) it was loaded from.
 type HelpEntry = {
   name: string;
   description: string;
   details: string[];
+  category: string;
 };
 
 // Create help command.
@@ -50,20 +52,30 @@ export const data = new SlashCommandBuilder()
 // Builds the full, sorted list of help entries from every cached command.
 let cachedEntries: HelpEntry[] | null = null;
 
-// Builds the full, sorted list of help entries from every loaded command.
-// Cached after the first call since the command list doesn't change at
-// runtime — unless commands get hot-reloaded, in which case call
-// invalidateHelpCache() to force a rebuild on the next /help.
+// Builds the full list of help entries, sorted by the folder each command was
+// loaded from (see the `category` field set in bot.ts), then alphabetically
+// within that folder. Cached after the first call since the command list
+// doesn't change at runtime — unless commands get hot-reloaded, in which case
+// call invalidateHelpCache() to force a rebuild on the next /help.
 function getHelpEntries(client: ClientWithCommands): HelpEntry[] {
   if (cachedEntries) return cachedEntries;
 
   cachedEntries = Array.from(client.commands.values())
-    .map((command) => (command as any).data.toJSON() as CommandJson)
-    .sort((a, b) => a.name.localeCompare(b.name))
     .map((command) => ({
-      name: command.name,
-      description: command.description,
-      details: collectSubcommandLines(command),
+      json: (command as any).data.toJSON() as CommandJson,
+      category: (command as any).category ?? "general",
+    }))
+    .filter(({ category }) => category !== "dev")
+    .sort(
+      (a, b) =>
+        a.category.localeCompare(b.category) ||
+        a.json.name.localeCompare(b.json.name),
+    )
+    .map(({ json, category }) => ({
+      name: json.name,
+      description: json.description,
+      details: collectSubcommandLines(json),
+      category,
     }));
 
   return cachedEntries;
@@ -101,6 +113,11 @@ function collectSubcommandLines(command: CommandJson): string[] {
   return lines;
 }
 
+// Turns a folder name like "general" into a display heading like "General".
+function formatCategoryName(category: string): string {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
 // Always at least 1 page, even if there are no commands or very few.
 function getPageCount(entries: HelpEntry[]): number {
   return Math.max(1, Math.ceil(entries.length / COMMANDS_PER_PAGE));
@@ -113,7 +130,7 @@ function buildHelpEmbed(
 ): { embed: EmbedBuilder; page: number; pageCount: number } {
   const entries = getHelpEntries(client);
   const pageCount = getPageCount(entries);
-	// Clamp the requested page so it can never go below 0 or past the last page.
+  // Clamp the requested page so it can never go below 0 or past the last page.
   const page = Math.min(Math.max(requestedPage, 0), pageCount - 1);
   const start = page * COMMANDS_PER_PAGE;
   const pageEntries = entries.slice(start, start + COMMANDS_PER_PAGE);
@@ -125,8 +142,8 @@ function buildHelpEmbed(
       [
         `🌐 [Website](${WEBSITE_URL})`,
         `✨ [Join the Support Server](${SUPPORT_SERVER_URL})`,
-        `🤖 [Add Archie to your Server](${INVITE_URL})`,
-				""
+        `🤖 [Add Archivist to your Server](${INVITE_URL})`,
+        "",
       ].join("\n"),
     )
     .setFooter({
@@ -134,17 +151,29 @@ function buildHelpEmbed(
       iconURL: client.user?.displayAvatarURL(),
     });
 
-  embed.addFields(
-    ...pageEntries.map((entry) => ({
+  // Insert a heading field whenever the category changes within the page,
+  // so commands stay visually grouped by folder.
+  let lastCategory: string | null = null;
+  for (const entry of pageEntries) {
+    if (entry.category !== lastCategory) {
+      embed.addFields({
+        name: formatCategoryName(entry.category),
+        value: "\u200B",
+      });
+      lastCategory = entry.category;
+    }
+
+    embed.addFields({
       name: `/${entry.name}`,
       value:
         [entry.description, ...entry.details].filter(Boolean).join("\n") ||
         "No description available.",
-    })),
-  );
+    });
+  }
 
   return { embed, page, pageCount };
 }
+
 // Builds the "Previous"/"Next" buttons. The owner's user ID and target page are
 // encoded into each button's customId (e.g. "help:123456:2") so we know who the
 // panel belongs to and which page to show next, without storing any extra state.
@@ -202,7 +231,7 @@ export const handleHelpButtonInteraction = async (
   const client = interaction.client as ClientWithCommands;
   const { embed, page: safePage, pageCount } = buildHelpEmbed(client, page);
 
-	// Edit the existing message in place instead of sending a new reply.
+  // Edit the existing message in place instead of sending a new reply.
   await interaction.update({
     embeds: [embed],
     components: buildHelpComponents(ownerId, safePage, pageCount),
