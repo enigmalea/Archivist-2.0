@@ -12,7 +12,23 @@ import {
   GatewayIntentBits,
   MessageFlags,
 } from "discord.js";
+import {
+  buildLegacyWorkEmbed,
+  buildWorkEmbedComponents,
+  buildWorkEmbedPages,
+} from "./utils/embeds/worksEmbed.ts";
+import { buildUserEmbedComponents, buildUserEmbedPages } from "./utils/embeds/userEmbed.ts";
+import { buildWorkGalleryComponents, buildWorkGalleryPage } from "./utils/images.ts";
+import { cachedGetSeries, cachedGetWork } from "./utils/cache.ts";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  findDisallowedWarning,
+  getGuildSettingsBundle,
+  getIgnoreChar,
+  isFieldEnabled,
+  isRatingAllowed,
+  shouldShowNsfwWarning,
+} from "./utils/embedFields.ts";
 import { getCacheStatsByType, getCacheStatsTotals } from "./utils/cacheStats.ts";
 import {
   getSeriesIdFromUrl,
@@ -23,30 +39,14 @@ import {
 
 import Bottleneck from "bottleneck";
 import { authError } from "./utils/errors.ts";
-import { buildWorkGalleryComponents, buildWorkGalleryPage } from "./utils/images.ts";
-import { cachedGetSeries, cachedGetWork } from "./utils/cache.ts";
 import { chapterEmbed } from "./utils/embeds/chapterEmbed.ts";
 import dotenv from "dotenv";
-import {
-  findDisallowedWarning,
-  getGuildSettingsBundle,
-  getIgnoreChar,
-  isFieldEnabled,
-  isRatingAllowed,
-  shouldShowNsfwWarning,
-} from "./utils/embedFields.ts";
 import { findBlockedTag } from "./utils/restrictions.ts";
 import fs from "node:fs";
 import { getBotCredentials } from "./utils/botEnv.ts";
+import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 import path from "node:path";
 import { seriesEmbed } from "./utils/embeds/seriesEmbed.ts";
-import { buildUserEmbedComponents, buildUserEmbedPages } from "./utils/embeds/userEmbed.ts";
-import {
-  buildLegacyWorkEmbed,
-  buildWorkEmbedComponents,
-  buildWorkEmbedPages,
-} from "./utils/embeds/worksEmbed.ts";
-import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -123,7 +123,7 @@ for (const folder of commandFolders) {
     const command = commandModule.default ?? commandModule;
 
     if ("data" in command && "execute" in command) {
-      client.commands.set(command.data.name, command);
+      client.commands.set(command.data.name, { ...command, category: folder });
       console.log("Command Loaded:", file);
     } else {
       console.log(
