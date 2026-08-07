@@ -22,6 +22,7 @@ export function getSeriesIdFromUrl(seriesURL: string): string {
 
 export interface RedirectSendResult {
   channelId: string;
+  message: any;
 }
 
 export interface RedirectableSendPayload {
@@ -48,19 +49,14 @@ export async function showTemporaryNotice(
   }, lifetimeMs);
 }
 
-// Sends an embed payload, redirecting to a channel/thread/forum configured
-// via /redirect if a rule matches. Falls back to editing waitingMsg in
-// place when no rule matches, the target is gone, or the guild has no
-// rules. Returns where it ended up so callers (e.g. a gallery follow-up)
-// can be told to land in the same place — resolveRedirectRule is
-// deterministic for the same guildId + meta, so a second independent call
-// with the same meta naturally lands on the same rule/thread.
+// Sends an embed, redirecting to a configured channel/thread/forum if a
+// /redirect rule matches. Returns where it landed and the sent message.
 export async function sendRedirectableEmbed(
   message: any,
   payload: RedirectableSendPayload,
   meta: { rating?: string; fandoms?: string[]; type: RedirectType },
   waitingMsg: any,
-): Promise<RedirectSendResult | null> {
+): Promise<RedirectSendResult> {
   const rule = message.guildId ? await resolveRedirectRule(message.guildId, meta) : null;
 
   if (rule && rule.destinationId !== message.channelId) {
@@ -68,16 +64,16 @@ export async function sendRedirectableEmbed(
 
     if (!dest) {
       console.warn(`Redirect target ${rule.destinationId} unavailable; falling back.`);
-      await waitingMsg.edit({ content: "", ...payload });
-      return null;
+      const edited = await waitingMsg.edit({ content: "", ...payload });
+      return { channelId: message.channelId, message: edited };
     }
 
     switch (rule.destinationType) {
       case "channel":
       case "thread": {
-        await dest.send(payload);
+        const sent = await dest.send(payload);
         await showTemporaryNotice(waitingMsg, `➡️ Sent to <#${rule.destinationId}>`, REDIRECT_NOTICE_LIFETIME_MS);
-        return { channelId: rule.destinationId };
+        return { channelId: rule.destinationId, message: sent };
       }
 
       case "forum": {
@@ -86,9 +82,9 @@ export async function sendRedirectableEmbed(
           const existing = await dest.threads.fetch(rule.forumThreadId).catch(() => null);
           if (existing) {
             if (existing.archived) await existing.setArchived(false).catch(() => {});
-            await existing.send(payload);
+            const sent = await existing.send(payload);
             await showTemporaryNotice(waitingMsg, `➡️ Sent to <#${rule.forumThreadId}>`, REDIRECT_NOTICE_LIFETIME_MS);
-            return { channelId: rule.forumThreadId };
+            return { channelId: rule.forumThreadId, message: sent };
           }
         }
 
@@ -98,11 +94,12 @@ export async function sendRedirectableEmbed(
           await updateRedirectRuleThreadId(message.guildId, rule.id, thread.id);
         }
         await showTemporaryNotice(waitingMsg, `➡️ Sent to new thread <#${thread.id}>`, REDIRECT_NOTICE_LIFETIME_MS);
-        return { channelId: thread.id };
+        const starterMessage = await thread.fetchStarterMessage();
+        return { channelId: thread.id, message: starterMessage };
       }
     }
   }
 
-  await waitingMsg.edit({ content: "", ...payload });
-  return null;
+  const edited = await waitingMsg.edit({ content: "", ...payload });
+  return { channelId: message.channelId, message: edited };
 }

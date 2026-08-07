@@ -1,4 +1,4 @@
-import { getSeries, getUser, getWork, getWorkContent, getWorkWithChapters } from "@fujocoded/ao3.js";
+import { getSeries, getUser, getWork, getWorkContent, getWorkWithChapters, setFetcher } from "@fujocoded/ao3.js";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 3 * HOUR_MS;
@@ -97,7 +97,15 @@ export async function cachedGetWork(workId: CacheKey) {
 }
 
 export async function cachedGetSeries(seriesId: CacheKey) {
-  return seriesCache.getOrSet(seriesId, () => getSeries({ seriesId }));
+  return seriesCache.getOrSet(seriesId, async () => {
+    const series = await getSeries({ seriesId });
+    // Unlike getWork, ao3.js's series parser doesn't validate the page
+    // actually parsed — an incomplete/broken AO3 response comes back as a
+    // "successful" series with an empty name and no works instead of
+    // throwing, which would otherwise get cached as good data for an hour.
+    if (!series.name) throw new Error("Series name is empty — AO3 likely returned an incomplete page");
+    return series;
+  });
 }
 
 export async function cachedGetUser(username: string) {
@@ -123,3 +131,22 @@ export async function cachedGetWorkContent(workId: CacheKey, chapterId?: number)
   const key = chapterCacheKey(workId, chapterId);
   return workContentCache.getOrSet(key, () => getWorkContent({ workId, chapterId }));
 }
+
+// Shared raw-HTML cache for every ao3.js fetch, wired in via setFetcher
+// below so images.ts's gallery scraping doesn't re-fetch the same page.
+const rawHtmlCache = new Cache<string>(HOUR_MS);
+
+export async function cachedFetchText(url: string, cookie: string = ""): Promise<string> {
+  const key = `${url}::${cookie}`;
+  return rawHtmlCache.getOrSet(key, async () => {
+    const response = await fetch(url, cookie ? { headers: { Cookie: cookie } } : undefined);
+    return response.text();
+  });
+}
+
+setFetcher(async (input, init) => {
+  const url = typeof input === "string" ? input : input.toString();
+  const headers = init?.headers as Record<string, string> | undefined;
+  const text = await cachedFetchText(url, headers?.Cookie ?? "");
+  return new Response(text);
+});

@@ -38,11 +38,17 @@ export const guildSettings = table("guild_settings", {
 
   // General category.
   legacyWorkEmbed: t.boolean().default(false).notNull(),
+  // AO3 outage alerts.
+  outageAlertsEnabled: t.boolean().default(false).notNull(),
+  outageAlertChannelId: t.varchar({ length: 20 }),
 
   // Gallery category.
   galleryEnabled: t.boolean().default(true).notNull(),
   galleryNsfwWarningMature: t.boolean().default(true).notNull(),
   galleryNsfwWarningExplicit: t.boolean().default(true).notNull(),
+  // Inactivity auto-reset.
+  galleryResetToFirstPage: t.boolean().default(true).notNull(),
+  listResetToFirstPage: t.boolean().default(true).notNull(),
 
   // Ratings category — a work/chapter with a disallowed rating is blocked
   // from being posted at all (see isRatingAllowed in utils/embedFields.ts).
@@ -104,6 +110,9 @@ export const workFieldSettings = table("work_field_settings", {
   // work-summary
   showSummary: t.boolean().default(true).notNull(),
   summaryMaxLength: t.int().default(3000).notNull(),
+
+  // Inactivity auto-reset: default tab.
+  defaultTab: t.mysqlEnum(["stats", "tags", "summary", "none"]).default("stats").notNull(),
 });
 
 /**
@@ -129,6 +138,16 @@ export const chapterFieldSettings = table("chapter_field_settings", {
   showNotes: t.boolean().default(true).notNull(),
   notesMaxLength: t.int().default(1024).notNull(),
 
+  // Tags tab (reuses the work's tags).
+  showFandoms: t.boolean().default(true).notNull(),
+  fandomsMaxLength: t.int().default(1024).notNull(),
+  showRelationships: t.boolean().default(true).notNull(),
+  relationshipsMaxLength: t.int().default(1024).notNull(),
+  showCharacters: t.boolean().default(true).notNull(),
+  charactersMaxLength: t.int().default(1024).notNull(),
+  showTags: t.boolean().default(true).notNull(),
+  tagsMaxLength: t.int().default(1024).notNull(),
+
   // Thumbnail: its own settings category (see EMBED_FIELD_CATEGORIES in
   // utils/embedFields.ts) rather than bundled into the general Fields
   // checkbox group, so it can carry its own rating-based exclusions instead
@@ -137,6 +156,9 @@ export const chapterFieldSettings = table("chapter_field_settings", {
   showThumbnail: t.boolean().default(true).notNull(),
   hideThumbnailOnMature: t.boolean().default(false).notNull(),
   hideThumbnailOnExplicit: t.boolean().default(false).notNull(),
+
+  // Inactivity auto-reset: default tab.
+  defaultTab: t.mysqlEnum(["stats", "tags", "summary", "none"]).default("stats").notNull(),
 });
 
 /**
@@ -160,6 +182,9 @@ export const seriesFieldSettings = table("series_field_settings", {
   notesMaxLength: t.int().default(1024).notNull(),
   showDescription: t.boolean().default(true).notNull(),
   descriptionMaxLength: t.int().default(1024).notNull(),
+
+  // Inactivity auto-reset: default tab.
+  defaultTab: t.mysqlEnum(["stats", "notes", "description", "none"]).default("stats").notNull(),
 });
 
 /**
@@ -185,6 +210,9 @@ export const userFieldSettings = table("user_field_settings", {
   // before it spills onto its own paginated bio page(s), see userEmbed.ts.
   showBio: t.boolean().default(true).notNull(),
   bioMaxLength: t.int().default(6000).notNull(),
+
+  // Inactivity auto-reset.
+  resetToFirstPage: t.boolean().default(true).notNull(),
 });
 
 /**
@@ -213,9 +241,9 @@ export const blockedTags = table(
  * an arbitrary filter object (rating / fandom / type, AND'd together
  * within a rule) and a destination channel/forum/thread ID.
  *
- * Match priority across multiple matching rules, when more than one rule
- * matches the same work: rating > fandom > type (computed at match time
- * in bot.ts, not stored — see ruleSpecificity()).
+ * When more than one rule matches the same work, the first one created
+ * wins (see resolveRedirectRule in utils/redirects.ts) — there's no
+ * specificity-based priority between rating/fandom/type.
  */
 export const redirectRules = table(
   "redirect_rules",

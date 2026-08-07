@@ -1,5 +1,5 @@
 diff --git a/node_modules/@fujocoded/ao3.js/dist/src/page-loaders.js b/node_modules/@fujocoded/ao3.js/dist/src/page-loaders.js
-index 8b00568..e523d43 100644
+index 8b00568..c875c43 100644
 --- a/node_modules/@fujocoded/ao3.js/dist/src/page-loaders.js
 +++ b/node_modules/@fujocoded/ao3.js/dist/src/page-loaders.js
 @@ -19,10 +19,9 @@ const loadTagFeedAtomPage = async ({ tagId }) => {
@@ -16,6 +16,91 @@ index 8b00568..e523d43 100644
  };
  const loadUserProfilePage = async ({ username }) => {
  	return await fetchPage({ url: getUserProfileUrl({ username }) });
+@@ -30,8 +29,10 @@ const loadUserProfilePage = async ({ username }) => {
+ const loadChaptersIndexPage = async ({ workId }) => {
+ 	return await fetchPage({ url: getWorkIndexUrl({ workId }) });
+ };
+-const loadSeriesPage = async (seriesId) => {
+-	return await fetchPage({ url: getSeriesUrl({ seriesId }) });
++const loadSeriesPage = async (seriesId, page) => {
++	const base = getSeriesUrl({ seriesId });
++	const url = page && page > 1 ? `${base}?page=${page}` : base;
++	return await fetchPage({ url });
+ };
+ 
+ //#endregion
+diff --git a/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js b/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js
+index b7739da..06e36c9 100644
+--- a/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js
++++ b/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js
+@@ -1,6 +1,7 @@
+ import { parseArchiveId } from "../utils.js";
+ import { getAsShortUrl, getWorkDetailsFromUrl, getWorkUrl } from "../../urls.js";
+ import { getWorkBookmarkCount, getWorkHits, getWorkKudosCount, getWorkLanguage, getWorkPublishedChapters, getWorkTotalChapters, getWorkWordCount } from "../works/work-getters.js";
++import { WorkRatings } from "../../types/entities.js";
+ import { load } from "cheerio/slim";
+ 
+ //#region src/series/getters.ts
+@@ -73,6 +74,10 @@ const getSeriesWorks = ($seriesPage) => {
+ 	});
+ 	return works;
+ };
++const getSeriesWorkRating = ($work) => {
++	const rating = $work("span.rating").attr("title") ?? "";
++	return Object.values(WorkRatings).includes(rating) ? rating : WorkRatings.NOT_RATED;
++};
+ const getSeriesWork = (workHtml) => {
+ 	const work = load(workHtml);
+ 	const $work = work, $$work = work;
+@@ -88,6 +93,7 @@ const getSeriesWork = (workHtml) => {
+ 		title: getSeriesWorkTitle($work),
+ 		updatedAt: getSeriesWorkUpdateDate($work),
+ 		summary: getSeriesWorkSummary($work),
++		rating: getSeriesWorkRating($work),
+ 		adult: false,
+ 		fandoms: getSeriesWorkFandoms($work),
+ 		tags: {
+diff --git a/node_modules/@fujocoded/ao3.js/dist/src/series/index.js b/node_modules/@fujocoded/ao3.js/dist/src/series/index.js
+index b4710ad..90fb24b 100644
+--- a/node_modules/@fujocoded/ao3.js/dist/src/series/index.js
++++ b/node_modules/@fujocoded/ao3.js/dist/src/series/index.js
+@@ -3,10 +3,26 @@ import { loadSeriesPage } from "../page-loaders.js";
+ import { getSeriesAuthors, getSeriesBookmarkCount, getSeriesCompletionStatus, getSeriesDescription, getSeriesNotes, getSeriesPublishDate, getSeriesTitle, getSeriesUpdateDate, getSeriesWordCount, getSeriesWorkCount, getSeriesWorks } from "./getters.js";
+ 
+ //#region src/series/index.ts
++// AO3 paginates a series' works list at 20/page — getSeriesWorks only ever
++// sees whatever's on the single page it's given, so without this a series
++// with more than 20 works would silently report just its first page. Capped
++// at MAX_SERIES_PAGES (1000 works) so a pathologically long rec-list series
++// can't turn one getSeries() call into an unbounded number of requests.
++const SERIES_WORKS_PER_PAGE = 20;
++const MAX_SERIES_PAGES = 50;
++const SERIES_PAGE_FETCH_DELAY_MS = 300;
++const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+ const getSeries = async ({ seriesId }) => {
+ 	if (!isValidArchiveId(seriesId)) throw new InvalidIDError(seriesId, "series");
+ 	const seriesPage = await loadSeriesPage(seriesId);
+-	const seriesWorks = getSeriesWorks(seriesPage);
++	const workCount = getSeriesWorkCount(seriesPage);
++	let seriesWorks = getSeriesWorks(seriesPage);
++	const totalPages = Math.min(Math.ceil((workCount || seriesWorks.length) / SERIES_WORKS_PER_PAGE) || 1, MAX_SERIES_PAGES);
++	for (let page = 2; page <= totalPages; page++) {
++		await sleep(SERIES_PAGE_FETCH_DELAY_MS);
++		const nextPage = await loadSeriesPage(seriesId, page);
++		seriesWorks = seriesWorks.concat(getSeriesWorks(nextPage));
++	}
+ 	return {
+ 		id: parseArchiveId(seriesId),
+ 		name: getSeriesTitle(seriesPage),
+@@ -18,7 +34,7 @@ const getSeries = async ({ seriesId }) => {
+ 		words: getSeriesWordCount(seriesPage),
+ 		bookmarks: getSeriesBookmarkCount(seriesPage),
+ 		complete: getSeriesCompletionStatus(seriesPage),
+-		workCount: getSeriesWorkCount(seriesPage),
++		workCount,
+ 		works: seriesWorks
+ 	};
+ };
 diff --git a/node_modules/@fujocoded/ao3.js/dist/src/works/index.js b/node_modules/@fujocoded/ao3.js/dist/src/works/index.js
 index 1660847..4d9fbdc 100644
 --- a/node_modules/@fujocoded/ao3.js/dist/src/works/index.js
@@ -107,9 +192,18 @@ index c4f20b7..9c5c966 100644
 +export { getChapterIndex, getChapterName, getChapterStartNotes, getChapterSummary, getWorkAdditionalTags, getWorkAdult, getWorkAuthors, getWorkBookmarkCount, getWorkCategory, getWorkCharacters, getWorkCommentCount, getWorkContentHtml, getWorkContentSummary, getWorkEndNotes, getWorkFandoms, getWorkHits, getWorkKudosCount, getWorkLanguage, getWorkLocked, getWorkPublishDate, getWorkPublishedChapters, getWorkRating, getWorkRelationships, getWorkSeries, getWorkStartNotes, getWorkSummary, getWorkTitle, getWorkTotalChapters, getWorkUpdateDate, getWorkWarnings, getWorkWordCount };
 \ No newline at end of file
 diff --git a/node_modules/@fujocoded/ao3.js/dist/types/entities.d.ts b/node_modules/@fujocoded/ao3.js/dist/types/entities.d.ts
-index 4984a90..0499b2a 100644
+index 4984a90..75e002b 100644
 --- a/node_modules/@fujocoded/ao3.js/dist/types/entities.d.ts
 +++ b/node_modules/@fujocoded/ao3.js/dist/types/entities.d.ts
+@@ -62,7 +62,7 @@ interface User {
+   gifts: number;
+   bioHtml: string | null;
+ }
+-interface SeriesWorkSummary extends Omit<WorkSummary, "category" | "publishedAt" | "rating" | "tags" | "stats" | "locked" | "chapterInfo" | "series"> {
++interface SeriesWorkSummary extends Omit<WorkSummary, "category" | "publishedAt" | "tags" | "stats" | "locked" | "chapterInfo" | "series"> {
+   url: string;
+   shortUrl: string;
+   tags: Omit<WorkSummary["tags"], "warnings">;
 @@ -128,6 +128,7 @@ interface WorkSummary {
    publishedAt: string;
    updatedAt: string | null;

@@ -15,10 +15,19 @@ import {
 import {
   buildLegacyWorkEmbed,
   buildWorkEmbedComponents,
+  buildWorkEmbedDefaultPayload,
   buildWorkEmbedPages,
 } from "./utils/embeds/worksEmbed.ts";
-import { buildUserEmbedComponents, buildUserEmbedPages } from "./utils/embeds/userEmbed.ts";
-import { buildWorkGalleryComponents, buildWorkGalleryPage } from "./utils/images.ts";
+import {
+  buildUserEmbedComponents,
+  buildUserEmbedDefaultPayload,
+  buildUserEmbedPages,
+} from "./utils/embeds/userEmbed.ts";
+import {
+  buildGalleryDefaultPayload,
+  buildWorkGalleryComponents,
+  buildWorkGalleryPage,
+} from "./utils/images.ts";
 import { cachedGetSeries, cachedGetWork } from "./utils/cache.ts";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
@@ -37,27 +46,28 @@ import {
   showTemporaryNotice,
 } from "./utils/urls.ts";
 
-import Bottleneck from "bottleneck";
+import { ao3Limiter } from "./utils/ao3Limiter.ts";
 import { authError } from "./utils/errors.ts";
-import { chapterEmbed } from "./utils/embeds/chapterEmbed.ts";
+import {
+  buildChapterEmbedComponents,
+  buildChapterEmbedDefaultPayload,
+  buildChapterEmbedPages,
+} from "./utils/embeds/chapterEmbed.ts";
 import dotenv from "dotenv";
 import { findBlockedTag } from "./utils/restrictions.ts";
 import fs from "node:fs";
 import { getBotCredentials } from "./utils/botEnv.ts";
-import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
+import { scheduleInactivityReset } from "./utils/inactivityReset.ts";
 import path from "node:path";
-import { seriesEmbed } from "./utils/embeds/seriesEmbed.ts";
+import {
+  buildSeriesEmbedComponents,
+  buildSeriesEmbedDefaultPayload,
+  buildSeriesEmbedPages,
+} from "./utils/embeds/seriesEmbed.ts";
+import { getWorkDetailsFromUrl } from "@fujocoded/ao3.js/urls";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-const ao3Limiter = new Bottleneck({
-  maxConcurrent: 1,
-  minTime: 2500,
-  reservoir: 20,
-  reservoirRefreshAmount: 20,
-  reservoirRefreshInterval: 60 * 1000,
-});
 
 dotenv.config({ quiet: true });
 
@@ -88,6 +98,11 @@ const client = new ClientWithCommands({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
+});
+
+// Last-resort error handler — prevents an unhandled 'error' event from crashing the process.
+client.on(Events.Error, (error) => {
+  console.error("Discord client error:", error);
 });
 
 // Loads event listeners.
@@ -229,7 +244,7 @@ async function postWorkLink(message: any, url: string) {
           : [];
 
       const work = await cachedGetWork(workId);
-      await sendRedirectableEmbed(
+      const { message: sentMessage } = await sendRedirectableEmbed(
         message,
         { embeds, components },
         {
@@ -239,6 +254,13 @@ async function postWorkLink(message: any, url: string) {
         },
         waitingMsg,
       );
+
+      // Legacy embed mode has no tabs/pages to reset to.
+      if (!useLegacyEmbed) {
+        scheduleInactivityReset(sentMessage, () =>
+          buildWorkEmbedDefaultPayload(url, message.guildId, message.author.id),
+        );
+      }
     })
     .catch(async (error) => {
       abortGallery = true;
@@ -255,7 +277,7 @@ async function postWorkLink(message: any, url: string) {
       }
 
       const work = await cachedGetWork(workId);
-      await sendRedirectableEmbed(
+      const { message: sentMessage } = await sendRedirectableEmbed(
         message,
         {
           embeds: result.page.embeds,
@@ -272,6 +294,10 @@ async function postWorkLink(message: any, url: string) {
         },
         galleryWaitingMsg,
       );
+
+      scheduleInactivityReset(sentMessage, () =>
+        buildGalleryDefaultPayload(workId, message.guildId, message.author.id),
+      );
     })
     .catch(async (error) => {
       console.error(`Failed to build gallery for ${url}`, error);
@@ -280,6 +306,15 @@ async function postWorkLink(message: any, url: string) {
 }
 
 client.on(Events.MessageCreate, async (message) => {
+  try {
+    await handleMessageCreate(message);
+  } catch (error) {
+    // Prevents one bad message from crashing the whole shard.
+    console.error("Error handling message:", error);
+  }
+});
+
+async function handleMessageCreate(message: any) {
   // Tells bot to ignore messages from other bots.
   if (message.author.bot) return;
 
@@ -316,7 +351,7 @@ client.on(Events.MessageCreate, async (message) => {
         try {
           const username = getUsernameFromUrl(url);
           const pages = await ao3Limiter.schedule(() => buildUserEmbedPages(username, message.guildId));
-          await sendRedirectableEmbed(
+          const { message: sentMessage } = await sendRedirectableEmbed(
             message,
             {
               embeds: [pages[0]],
@@ -327,6 +362,10 @@ client.on(Events.MessageCreate, async (message) => {
             },
             { type: "user" },
             waitingMsg,
+          );
+
+          scheduleInactivityReset(sentMessage, () =>
+            buildUserEmbedDefaultPayload(username, message.guildId, message.author.id),
           );
         } catch (error) {
           console.error(`Failed to build user embed for ${url}`);
@@ -340,16 +379,30 @@ client.on(Events.MessageCreate, async (message) => {
         const waitingMsg = await message.channel.send("⏳ Fetching from AO3...");
         try {
           const seriesId = getSeriesIdFromUrl(url);
-          const [embed, series] = await ao3Limiter.schedule(() =>
-            Promise.all([seriesEmbed(url, message.guildId), cachedGetSeries(seriesId)]),
+          const [result, series] = await ao3Limiter.schedule(() =>
+            Promise.all([buildSeriesEmbedPages(url, message.guildId), cachedGetSeries(seriesId)]),
           );
           const fandoms = [...new Set(series.works.flatMap((w) => w.fandoms))];
+          const components =
+            result.pages.length > 1
+              ? buildSeriesEmbedComponents(
+                  message.author.id,
+                  0,
+                  result.notesPageCount,
+                  result.descriptionPageCount,
+                  seriesId,
+                )
+              : [];
 
-          await sendRedirectableEmbed(
+          const { message: sentMessage } = await sendRedirectableEmbed(
             message,
-            { embeds: [embed] },
+            { embeds: [result.pages[0]], components },
             { fandoms, type: "series" },
             waitingMsg,
+          );
+
+          scheduleInactivityReset(sentMessage, () =>
+            buildSeriesEmbedDefaultPayload(url, message.guildId, message.author.id),
           );
         } catch (error) {
           console.error(`Failed to build series embed for ${url}`, error);
@@ -377,7 +430,7 @@ client.on(Events.MessageCreate, async (message) => {
       });
     }
   }
-});
+}
 
 async function handleChapterLink(message: any, url: string) {
   const question = "Would you like a work or chapter embed?";
@@ -408,6 +461,28 @@ async function handleChapterLink(message: any, url: string) {
   });
 
   collector.on("collect", async (buttonInteraction: ButtonInteraction) => {
+    try {
+      await handleWorkOrChapterChoice(buttonInteraction, message, url, botReply);
+    } catch (error) {
+      console.error(`Failed to handle work/chapter choice for ${url}`, error);
+    }
+  });
+
+  collector.on("end", (collected: Collection<string, ButtonInteraction>) => {
+    console.log(`Collected ${collected.size} interactions.`);
+    // Nobody clicked in time — clean up instead of leaving dead buttons.
+    if (collected.size === 0) {
+      botReply.delete().catch(() => {});
+    }
+  });
+}
+
+async function handleWorkOrChapterChoice(
+  buttonInteraction: ButtonInteraction,
+  message: any,
+  url: string,
+  botReply: any,
+) {
     if (buttonInteraction.user.id !== message.author.id) {
       await buttonInteraction.reply({
         content: "These buttons aren't for you!",
@@ -460,16 +535,31 @@ async function handleChapterLink(message: any, url: string) {
           }
         }
 
-        const urlResponse = await ao3Limiter.schedule(() => chapterEmbed(url, message.guildId));
+        const result = await ao3Limiter.schedule(() => buildChapterEmbedPages(url, message.guildId));
 
-        if (urlResponse && "locked" in urlResponse) {
+        if ("locked" in result) {
           await waitingMsg.edit(authError);
           return;
         }
 
-        await sendRedirectableEmbed(
+        // Always present — this branch only runs for /chapters/ URLs (see handleChapterLink).
+        const chapterId = getWorkDetailsFromUrl({ url }).chapterId!;
+        const components =
+          result.pages.length > 1
+            ? buildChapterEmbedComponents(
+                message.author.id,
+                0,
+                result.tagsPageCount,
+                result.contentPageCount,
+                result.contentTabLabel,
+                workId,
+                chapterId,
+              )
+            : [];
+
+        const { message: sentMessage } = await sendRedirectableEmbed(
           message,
-          { embeds: [urlResponse] },
+          { embeds: [result.pages[0]], components },
           {
             rating: work.locked ? undefined : work.rating,
             fandoms: work.locked ? undefined : work.fandoms,
@@ -477,17 +567,16 @@ async function handleChapterLink(message: any, url: string) {
           },
           waitingMsg,
         );
+
+        scheduleInactivityReset(sentMessage, () =>
+          buildChapterEmbedDefaultPayload(url, message.guildId, message.author.id),
+        );
       } catch (error) {
         console.error(`Failed to build chapter embed for ${url}`);
         console.error(error);
         await waitingMsg.edit("⚠️ Something went wrong fetching that from AO3.").catch(() => {});
       }
     }
-  });
-
-  collector.on("end", (collected: Collection<string, ButtonInteraction>) => {
-    console.log(`Collected ${collected.size} interactions.`);
-  });
 }
 
 // Login to Discord and start bot.

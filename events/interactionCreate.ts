@@ -11,8 +11,10 @@ import {
 } from "../utils/images.ts";
 
 import type { ClientWithCommands } from "../bot.ts";
+import { handleChapterEmbedButtonInteraction } from "../utils/embeds/chapterEmbed.ts";
 import { handleHelpButtonInteraction } from "../commands/general/help.ts";
-import { handleListButtonInteraction } from "../commands/ao3/list.ts";
+import { handleListButtonInteraction, handleListSelectInteraction } from "../commands/ao3/list.ts";
+import { handleSeriesEmbedButtonInteraction } from "../utils/embeds/seriesEmbed.ts";
 import { handleUserEmbedButtonInteraction } from "../utils/embeds/userEmbed.ts";
 import { handleWorkEmbedButtonInteraction } from "../utils/embeds/worksEmbed.ts";
 
@@ -24,6 +26,8 @@ export const execute = async (interaction: BaseInteraction) => {
       if (await handleWorkEmbedButtonInteraction(interaction)) return;
       if (await handleWorkGalleryButtonInteraction(interaction)) return;
       if (await handleUserEmbedButtonInteraction(interaction)) return;
+      if (await handleChapterEmbedButtonInteraction(interaction)) return;
+      if (await handleSeriesEmbedButtonInteraction(interaction)) return;
       if (await handleListButtonInteraction(interaction)) return;
       if (await handleSettingsPanelButtonInteraction(interaction)) return;
     } catch (error) {
@@ -34,6 +38,7 @@ export const execute = async (interaction: BaseInteraction) => {
   if (interaction.isStringSelectMenu()) {
     try {
       if (await handleWorkGallerySelectInteraction(interaction)) return;
+      if (await handleListSelectInteraction(interaction)) return;
       if (await handleSettingsPanelSelectInteraction(interaction)) return;
     } catch (error) {
       console.error("Error handling select menu interaction:", error);

@@ -24,8 +24,7 @@ const MIN_FIELD_MAX_LENGTH = 50;
 export interface FieldDef {
   key: string;
   label: string;
-  // Shown next to the checkbox in the settings modal. Discord caps this at
-  // 100 characters.
+  // Shown next to the checkbox in the settings modal. Discord caps this at 100 characters.
   description?: string;
   // Presence marks this field as length-configurable in the settings panel.
   // The value is the default max length before a guild overrides it.
@@ -40,9 +39,7 @@ export interface FieldDef {
   defaultEnabled?: boolean;
 }
 
-// Each category maps 1:1 to a CheckboxGroup modal. Discord caps a
-// CheckboxGroup at 10 options, which is why "work" is split into several
-// small categories (stats/tags/summary) instead of one big one.
+// Each category maps 1:1 to a CheckboxGroup modal. Discord caps a CheckboxGroup at 10 options
 export const EMBED_FIELD_CATEGORIES = {
   general: {
     title: "Preferences",
@@ -57,6 +54,12 @@ export const EMBED_FIELD_CATEGORIES = {
         key: "legacyWorkEmbed",
         label: "Use the original Archivist-style embed",
         description: "One embed including all fields, instead of paginated Stats/Tags/Summary tabs.",
+        defaultEnabled: false,
+      },
+      {
+        key: "outageAlerts",
+        label: "Post AO3 outage alerts",
+        description: "Posts to the channel set below whenever AO3's status changes, and again on recovery.",
         defaultEnabled: false,
       },
     ] as FieldDef[],
@@ -136,6 +139,17 @@ export const EMBED_FIELD_CATEGORIES = {
       },
     ] as FieldDef[],
   },
+  // Inactivity auto-reset: default tab + gallery reset toggle.
+  "work-inactivity": {
+    title: "Inactivity",
+    fields: [
+      {
+        key: "galleryResetToFirstPage",
+        label: "Reset gallery to page 1 after inactivity",
+        description: "The original gallery message jumps back to page 1 after 5 minutes with no clicks.",
+      },
+    ] as FieldDef[],
+  },
   // Subcategory of Restrictions — a work with a disallowed rating is
   // blocked from being posted at all, same as a blocked warning/tag.
   ratings: {
@@ -179,13 +193,44 @@ export const EMBED_FIELD_CATEGORIES = {
       {
         key: "summary",
         label: "Summary",
-        description: "This chapter's summary, if the author wrote one.",
-        maxLength: FIELD_VALUE_HARD_CAP,
+        description: "Adds a Summary tab with this chapter's summary, paginated if it's long.",
+        maxLength: 3000,
+        maxLengthCap: 10000,
       },
       {
         key: "notes",
         label: "Notes",
-        description: "This chapter's own beginning/end author notes, not the work's.",
+        description: "This chapter's beginning/end author notes — merged into Summary if present, else its own tab.",
+        maxLength: 3000,
+        maxLengthCap: 10000,
+      },
+    ] as FieldDef[],
+  },
+  "chapter-tags": {
+    title: "Tags",
+    fields: [
+      {
+        key: "fandoms",
+        label: "Fandoms",
+        description: "Which fandom(s) the work belongs to.",
+        maxLength: FIELD_VALUE_HARD_CAP,
+      },
+      {
+        key: "relationships",
+        label: "Relationships",
+        description: "Tagged relationships.",
+        maxLength: FIELD_VALUE_HARD_CAP,
+      },
+      {
+        key: "characters",
+        label: "Characters",
+        description: "Tagged characters featured in the work.",
+        maxLength: FIELD_VALUE_HARD_CAP,
+      },
+      {
+        key: "tags",
+        label: "Additional Tags",
+        description: "Freeform tags the author added.",
         maxLength: FIELD_VALUE_HARD_CAP,
       },
     ] as FieldDef[],
@@ -202,15 +247,18 @@ export const EMBED_FIELD_CATEGORIES = {
         key: "excludeMature",
         label: "Hide thumbnail on Mature works",
         description: "Never show a thumbnail for chapters belonging to a Mature-rated work.",
-        defaultEnabled: false,
       },
       {
         key: "excludeExplicit",
         label: "Hide thumbnail on Explicit works",
-        defaultEnabled: false,
         description: "Never show a thumbnail for chapters belonging to an Explicit-rated work.",
       },
     ] as FieldDef[],
+  },
+  // Inactivity auto-reset: default tab only.
+  "chapter-inactivity": {
+    title: "Inactivity",
+    fields: [] as FieldDef[],
   },
   series: {
     title: "Fields",
@@ -225,16 +273,23 @@ export const EMBED_FIELD_CATEGORIES = {
       {
         key: "notes",
         label: "Notes",
-        description: "The series' author notes, if any.",
-        maxLength: FIELD_VALUE_HARD_CAP,
+        description: "Adds a Notes tab with the series' author notes, paginated if it's long.",
+        maxLength: 3000,
+        maxLengthCap: 10000,
       },
       {
         key: "description",
         label: "Description",
-        description: "The series' description, if the author wrote one.",
-        maxLength: FIELD_VALUE_HARD_CAP,
+        description: "Adds a Description tab with the series' description, paginated if it's long.",
+        maxLength: 3000,
+        maxLengthCap: 10000,
       },
     ] as FieldDef[],
+  },
+  // Inactivity auto-reset: default tab only.
+  "series-inactivity": {
+    title: "Inactivity",
+    fields: [] as FieldDef[],
   },
   user: {
     title: "Fields",
@@ -257,6 +312,16 @@ export const EMBED_FIELD_CATEGORIES = {
       },
     ] as FieldDef[],
   },
+  "user-inactivity": {
+    title: "Inactivity",
+    fields: [
+      {
+        key: "resetToFirstPage",
+        label: "Reset to page 1 after inactivity",
+        description: "The original profile message jumps back to page 1 after 5 minutes with no clicks.",
+      },
+    ] as FieldDef[],
+  },
 } as const;
 
 export type EmbedFieldCategory = keyof typeof EMBED_FIELD_CATEGORIES;
@@ -271,23 +336,21 @@ export interface EmbedFieldGroup {
 // gets one button per category listed here.
 export const EMBED_FIELD_GROUPS: EmbedFieldGroup[] = [
   { key: "general", title: "General", categories: ["general", "ratings", "restrictions"] },
-  { key: "work", title: "Work", categories: ["work-stats", "work-tags", "work-summary", "gallery"] },
-  { key: "chapter", title: "Chapter", categories: ["chapter", "chapter-thumbnail"] },
-  { key: "series", title: "Series", categories: ["series"] },
-  { key: "user", title: "User Profile", categories: ["user"] },
+  {
+    key: "work",
+    title: "Work",
+    categories: ["work-stats", "work-tags", "work-summary", "gallery", "work-inactivity"],
+  },
+  {
+    key: "chapter",
+    title: "Chapter",
+    categories: ["chapter", "chapter-tags", "chapter-thumbnail", "chapter-inactivity"],
+  },
+  { key: "series", title: "Series", categories: ["series", "series-inactivity"] },
+  { key: "user", title: "User Profile", categories: ["user", "user-inactivity"] },
 ];
 
 // --- DB column mapping ---
-//
-// Every field in the catalog above lives as a real boolean column (plus an
-// optional paired int column for maxLength-configurable fields) in exactly
-// one table per category — never split across tables within a category,
-// which is what lets writeCategoryValues below pick one table per write.
-// Column names mostly follow "show"/"allow" + PascalCase(key), but a few
-// (general, gallery) don't, so this is spelled out explicitly rather than
-// derived by string transformation — a wrong guess here would silently
-// write to a nonexistent column and throw at write time, or (worse) match
-// nothing and silently no-op.
 type BundleTable = "guild" | "work" | "chapter" | "series" | "user";
 
 const CATEGORY_TABLE: Record<EmbedFieldCategory, BundleTable> = {
@@ -296,12 +359,17 @@ const CATEGORY_TABLE: Record<EmbedFieldCategory, BundleTable> = {
   "work-tags": "work",
   "work-summary": "work",
   gallery: "guild",
+  "work-inactivity": "guild",
   ratings: "guild",
   restrictions: "guild",
   chapter: "chapter",
+  "chapter-tags": "chapter",
   "chapter-thumbnail": "chapter",
+  "chapter-inactivity": "chapter",
   series: "series",
+  "series-inactivity": "series",
   user: "user",
+  "user-inactivity": "user",
 };
 
 interface FieldColumnMap {
@@ -311,10 +379,9 @@ interface FieldColumnMap {
 
 const FIELD_COLUMNS: Record<EmbedFieldCategory, Record<string, FieldColumnMap>> = {
   general: {
-    // deleteOriginalMessage predates this table and reuses the column name
-    // from main's original schema instead of duplicating it.
     deleteOriginalMessage: { column: "deleteOriginalLink" },
     legacyWorkEmbed: { column: "legacyWorkEmbed" },
+    outageAlerts: { column: "outageAlertsEnabled" },
   },
   "work-stats": {
     words: { column: "showWords" },
@@ -340,6 +407,9 @@ const FIELD_COLUMNS: Record<EmbedFieldCategory, Record<string, FieldColumnMap>> 
     enabled: { column: "galleryEnabled" },
     nsfwWarningMature: { column: "galleryNsfwWarningMature" },
     nsfwWarningExplicit: { column: "galleryNsfwWarningExplicit" },
+  },
+  "work-inactivity": {
+    galleryResetToFirstPage: { column: "galleryResetToFirstPage" },
   },
   ratings: {
     "rating-not-rated": { column: "allowRatingNotRated" },
@@ -367,11 +437,18 @@ const FIELD_COLUMNS: Record<EmbedFieldCategory, Record<string, FieldColumnMap>> 
     summary: { column: "showSummary", lengthColumn: "summaryMaxLength" },
     notes: { column: "showNotes", lengthColumn: "notesMaxLength" },
   },
+  "chapter-tags": {
+    fandoms: { column: "showFandoms", lengthColumn: "fandomsMaxLength" },
+    relationships: { column: "showRelationships", lengthColumn: "relationshipsMaxLength" },
+    characters: { column: "showCharacters", lengthColumn: "charactersMaxLength" },
+    tags: { column: "showTags", lengthColumn: "tagsMaxLength" },
+  },
   "chapter-thumbnail": {
     enabled: { column: "showThumbnail" },
     excludeMature: { column: "hideThumbnailOnMature" },
     excludeExplicit: { column: "hideThumbnailOnExplicit" },
   },
+  "chapter-inactivity": {},
   series: {
     authors: { column: "showAuthors" },
     complete: { column: "showComplete" },
@@ -383,6 +460,7 @@ const FIELD_COLUMNS: Record<EmbedFieldCategory, Record<string, FieldColumnMap>> 
     notes: { column: "showNotes", lengthColumn: "notesMaxLength" },
     description: { column: "showDescription", lengthColumn: "descriptionMaxLength" },
   },
+  "series-inactivity": {},
   user: {
     pseuds: { column: "showPseuds" },
     joined: { column: "showJoined" },
@@ -394,6 +472,9 @@ const FIELD_COLUMNS: Record<EmbedFieldCategory, Record<string, FieldColumnMap>> 
     bookmarks: { column: "showBookmarks" },
     gifts: { column: "showGifts" },
     bio: { column: "showBio", lengthColumn: "bioMaxLength" },
+  },
+  "user-inactivity": {
+    resetToFirstPage: { column: "resetToFirstPage" },
   },
 };
 
@@ -413,10 +494,6 @@ function bundleRow(bundle: GuildSettingsBundle, category: EmbedFieldCategory): R
   }
 }
 
-// Dynamic column names mean the update payload can't be typed against a
-// specific table's row shape here — writeCategoryValues is the one place
-// that bridges FIELD_COLUMNS' string column names into the strictly-typed
-// per-table update functions in settings.ts.
 async function writeCategoryValues(
   guildId: string,
   category: EmbedFieldCategory,
@@ -437,14 +514,6 @@ async function writeCategoryValues(
   }
 }
 
-// Fields default to enabled unless a guild has explicitly turned them off (or
-// the field itself opts out via defaultEnabled: false) — this way new fields
-// added to the catalog later show up for everyone without needing a
-// settings migration, while opt-in-only fields stay off until requested.
-//
-// Takes a pre-fetched bundle (see getGuildSettingsBundle) rather than a
-// guildId so building an embed with a dozen field checks costs one DB round
-// trip total, not one per check.
 export function isFieldEnabled(
   bundle: GuildSettingsBundle,
   category: EmbedFieldCategory,
@@ -590,6 +659,8 @@ export async function resetCategoryToDefaults(guildId: string, category: EmbedFi
     values[map.column] = field.defaultEnabled ?? true;
     if (map.lengthColumn) values[map.lengthColumn] = field.maxLength ?? FIELD_VALUE_HARD_CAP;
   }
+  // Skip categories with no FieldDefs (e.g. the -inactivity ones).
+  if (Object.keys(values).length === 0) return;
   await writeCategoryValues(guildId, category, values);
 }
 
@@ -600,6 +671,44 @@ export function getIgnoreChar(bundle: GuildSettingsBundle): string {
 export async function setIgnoreChar(guildId: string, ignoreChar: string): Promise<void> {
   const char = ignoreChar.trim().slice(0, 1);
   await updateGuildSettings(guildId, { ignoreChar: char || DEFAULT_IGNORE_CHAR });
+}
+
+// Inactivity auto-reset: default tab per embed type.
+export type WorkDefaultTab = "stats" | "tags" | "summary" | "none";
+export type ChapterDefaultTab = "stats" | "tags" | "summary" | "none";
+export type SeriesDefaultTab = "stats" | "notes" | "description" | "none";
+
+export function getWorkDefaultTab(bundle: GuildSettingsBundle): WorkDefaultTab {
+  return bundle.work?.defaultTab ?? "stats";
+}
+
+export async function setWorkDefaultTab(guildId: string, tab: WorkDefaultTab): Promise<void> {
+  await updateWorkFieldSettings(guildId, { defaultTab: tab });
+}
+
+export function getChapterDefaultTab(bundle: GuildSettingsBundle): ChapterDefaultTab {
+  return bundle.chapter?.defaultTab ?? "stats";
+}
+
+export async function setChapterDefaultTab(guildId: string, tab: ChapterDefaultTab): Promise<void> {
+  await updateChapterFieldSettings(guildId, { defaultTab: tab });
+}
+
+export function getSeriesDefaultTab(bundle: GuildSettingsBundle): SeriesDefaultTab {
+  return bundle.series?.defaultTab ?? "stats";
+}
+
+export async function setSeriesDefaultTab(guildId: string, tab: SeriesDefaultTab): Promise<void> {
+  await updateSeriesFieldSettings(guildId, { defaultTab: tab });
+}
+
+// /list's reset toggle — shown on the Series settings page.
+export function getListResetToFirstPage(bundle: GuildSettingsBundle): boolean {
+  return bundle.guild?.listResetToFirstPage ?? true;
+}
+
+export async function setListResetToFirstPage(guildId: string, enabled: boolean): Promise<void> {
+  await updateGuildSettings(guildId, { listResetToFirstPage: enabled });
 }
 
 // Flips a single field via a partial UPDATE on just its column — used to
