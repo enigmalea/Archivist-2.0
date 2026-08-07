@@ -10,9 +10,10 @@ import {
 import { getWorkUrl } from "@fujocoded/ao3.js/urls";
 
 import { ao3Embed } from "./baseEmbed.ts";
-import { Cache, cachedGetWork } from "./cache.ts";
+import { Cache, cachedFetchText, cachedGetWork } from "./cache.ts";
 import { embedColor } from "./ratings.ts";
-import { getGuildSettingsBundle, shouldShowNsfwWarning } from "./embedFields.ts";
+import { getGuildSettingsBundle, isFieldEnabled, shouldShowNsfwWarning } from "./embedFields.ts";
+import { scheduleInactivityReset } from "./inactivityReset.ts";
 
 import type {
   ButtonInteraction,
@@ -24,11 +25,10 @@ type CacheKey = string | number;
 
 const IMAGES_PER_PAGE = 4;
 const HOUR_MS = 60 * 60 * 1000;
+const VIEW_ADULT_COOKIE = "view_adult=true;";
 
 // Rewrites known image hosts' URLs to smaller variants before handing them
-// to Discord, so its embed-image proxy has less to fetch/render — this is
-// what actually determines how fast a page "appears" once the bot itself
-// has responded (the bot's own lookup is cache-instant after the first load).
+// to Discord, so its embed-image proxy has less to fetch/render
 export function optimizeImageUrl(src: string): string {
   try {
     const url = new URL(src);
@@ -77,15 +77,11 @@ export function extractImagesFromHtml(html: string): string[] {
     .filter((src) => src.startsWith("http://") || src.startsWith("https://"));
 }
 
-// Fetches the full work in one request using AO3's view_full_work param
-// instead of one request per chapter, then caches the extracted image URLs.
 async function fetchWorkImages(workId: CacheKey): Promise<string[]> {
   return workImagesCache.getOrSet(workId, async () => {
     const url = `${getWorkUrl({ workId })}?view_full_work=true`;
-    const response = await fetch(url, {
-      headers: { Cookie: "view_adult=true;" },
-    });
-    return extractImagesFromHtml(await response.text());
+    const html = await cachedFetchText(url, VIEW_ADULT_COOKIE);
+    return extractImagesFromHtml(html);
   });
 }
 
@@ -212,19 +208,47 @@ export function buildWorkGalleryComponents(
   return rows;
 }
 
-// Shared by the Prev/Next buttons and the page-jump select menu — both just
-// need to know which page to render next.
+export async function buildGalleryDefaultPayload(
+  workId: CacheKey,
+  guildId: string | null | undefined,
+  ownerId: string,
+): Promise<{ embeds: EmbedBuilder[]; files: AttachmentBuilder[]; components: ReturnType<typeof buildWorkGalleryComponents> | [] } | null> {
+  const bundle = await getGuildSettingsBundle(guildId);
+  if (!isFieldEnabled(bundle, "work-inactivity", "galleryResetToFirstPage")) return null;
+
+  const work = await cachedGetWork(workId);
+  const nsfwWarning = work.locked ? false : shouldShowNsfwWarning(bundle, work.rating, work.locked);
+
+  const workURL = getWorkUrl({ workId });
+  const result = await buildWorkGalleryPage(workId, workURL, 0, { nsfwWarning });
+  if (!result) return null;
+
+  return {
+    embeds: result.page.embeds,
+    files: result.page.files,
+    components: result.totalPages > 1 ? buildWorkGalleryComponents(ownerId, 0, result.totalPages, workId) : [],
+  };
+}
+
 async function renderGalleryPage(
   interaction: ButtonInteraction | StringSelectMenuInteraction,
   ownerId: string,
   workId: CacheKey,
   currentPage: number,
 ): Promise<void> {
-  await interaction.deferUpdate();
+  const isOwner = interaction.user.id === ownerId;
+  const componentOwnerId = isOwner ? ownerId : interaction.user.id;
+
+  // Non-owners get their own ephemeral copy.
+  if (isOwner) {
+    await interaction.deferUpdate();
+  } else {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  }
 
   await interaction.editReply({
     components: buildWorkGalleryComponents(
-      ownerId,
+      componentOwnerId,
       currentPage,
       currentPage + 2,
       workId,
@@ -260,9 +284,15 @@ async function renderGalleryPage(
     files: result.page.files,
     components:
       result.totalPages > 1
-        ? buildWorkGalleryComponents(ownerId, currentPage, result.totalPages, workId)
+        ? buildWorkGalleryComponents(componentOwnerId, currentPage, result.totalPages, workId)
         : [],
   });
+
+  if (isOwner) {
+    scheduleInactivityReset(interaction.message, () =>
+      buildGalleryDefaultPayload(workId, interaction.guildId, ownerId),
+    );
+  }
 }
 
 export const handleWorkGalleryButtonInteraction = async (
@@ -272,15 +302,6 @@ export const handleWorkGalleryButtonInteraction = async (
   if (parts[0] !== "gallery") return false;
 
   const [, ownerId, pageText, workId] = parts;
-  if (interaction.user.id !== ownerId) {
-    await interaction.reply({
-      content:
-        "This gallery belongs to someone else. Post the link yourself to get your own copy.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return true;
-  }
-
   const currentPage = Number.parseInt(pageText, 10) || 0;
   await renderGalleryPage(interaction, ownerId, workId, currentPage);
   return true;
@@ -293,15 +314,6 @@ export const handleWorkGallerySelectInteraction = async (
   if (parts[0] !== "gallery-select") return false;
 
   const [, ownerId, workId] = parts;
-  if (interaction.user.id !== ownerId) {
-    await interaction.reply({
-      content:
-        "This gallery belongs to someone else. Post the link yourself to get your own copy.",
-      flags: MessageFlags.Ephemeral,
-    });
-    return true;
-  }
-
   const currentPage = Number.parseInt(interaction.values[0], 10) || 0;
   await renderGalleryPage(interaction, ownerId, workId, currentPage);
   return true;

@@ -6,12 +6,19 @@ import { ao3Embed } from "../baseEmbed.ts";
 import { cachedGetUser } from "../cache.ts";
 import { chunkText } from "../chunkText.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
+import { scheduleInactivityReset } from "../inactivityReset.ts";
 import { truncateText } from "../truncate.ts";
 
 const BIO_PAGE_LENGTH = 750;
 const BIO_INLINE_THRESHOLD = 300;
 const BIO_TRAILING_MERGE_THRESHOLD = 350;
 const MAX_HR_PER_PAGE = 2;
+const AO3_BASE_URL = "https://archiveofourown.org";
+
+// Resolves AO3's relative default-avatar path to an absolute URL.
+function resolveIconUrl(icon: string | null | undefined): string | null {
+  return icon ? new URL(icon, AO3_BASE_URL).href : null;
+}
 
 function padInlineRow(embed: EmbedBuilder, fieldCount: number) {
   const padding = (3 - (fieldCount % 3)) % 3;
@@ -114,7 +121,7 @@ export async function buildUserEmbedPages(
   const profilePage = ao3Embed()
     .setTitle(username)
     .setURL(userURL)
-    .setThumbnail(user.icon)
+    .setThumbnail(resolveIconUrl(user.icon))
     .setDescription(header);
 
   if (enabled("pseuds")) {
@@ -188,7 +195,7 @@ export async function buildUserEmbedPages(
     ao3Embed()
       .setTitle(username)
       .setURL(userURL)
-      .setThumbnail(user.icon)
+      .setThumbnail(resolveIconUrl(user.icon))
       .setDescription(chunk),
   );
 
@@ -215,6 +222,22 @@ export function buildUserEmbedComponents(
         .setDisabled(page >= pageCount - 1),
     ),
   ];
+}
+
+// Default-page payload for the inactivity auto-reset.
+export async function buildUserEmbedDefaultPayload(
+  username: string,
+  guildId: string | null | undefined,
+  ownerId: string,
+): Promise<{ embeds: EmbedBuilder[]; components: ReturnType<typeof buildUserEmbedComponents> | [] } | null> {
+  const bundle = await getGuildSettingsBundle(guildId);
+  if (!isFieldEnabled(bundle, "user-inactivity", "resetToFirstPage")) return null;
+
+  const pages = await buildUserEmbedPages(username, guildId);
+  return {
+    embeds: [pages[0]],
+    components: pages.length > 1 ? buildUserEmbedComponents(ownerId, 0, pages.length, username) : [],
+  };
 }
 
 export const handleUserEmbedButtonInteraction = async (
@@ -244,13 +267,17 @@ export const handleUserEmbedButtonInteraction = async (
     const componentOwnerId = isOwner ? ownerId : interaction.user.id;
     await interaction.editReply({
       embeds: [pages[page]],
-      components: buildUserEmbedComponents(
-        componentOwnerId,
-        page,
-        pages.length,
-        username,
-      ),
+      components:
+        pages.length > 1
+          ? buildUserEmbedComponents(componentOwnerId, page, pages.length, username)
+          : [],
     });
+
+    if (isOwner) {
+      scheduleInactivityReset(interaction.message, () =>
+        buildUserEmbedDefaultPayload(username, interaction.guildId, ownerId),
+      );
+    }
   } catch (error) {
     console.error(`Failed to refresh user embed for ${username}`, error);
     await interaction

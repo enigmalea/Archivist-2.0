@@ -13,6 +13,5 @@ export function ao3Embed(color: number | null = DEFAULT_EMBED_COLOR): EmbedBuild
       iconURL: AO3_ICON_URL,
       url: AO3_URL,
     })
-    .setTimestamp()
     .setFooter({ text: AO3_FOOTER_TEXT });
 }

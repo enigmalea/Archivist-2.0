@@ -4,8 +4,11 @@ import {
   FIELD_VALUE_HARD_CAP,
   getFieldMaxLength,
   getGuildSettingsBundle,
+  getWorkDefaultTab,
   isFieldEnabled,
 } from "../embedFields.ts";
+import type { WorkDefaultTab } from "../embedFields.ts";
+import { scheduleInactivityReset } from "../inactivityReset.ts";
 import {
   chapterDisplay,
   formatCompletionStatus,
@@ -27,7 +30,7 @@ import { getWorkDetailsFromUrl, getWorkUrl } from "@fujocoded/ao3.js/urls";
 import { ao3Embed } from "../baseEmbed.ts";
 import { authError } from "../errors.ts";
 import { cachedGetWork } from "../cache.ts";
-import { chunkText } from "../chunkText.ts";
+import { chunkTextMerged } from "../chunkText.ts";
 import { constructCreators } from "../creators.ts";
 import { truncateText } from "../truncate.ts";
 
@@ -133,12 +136,7 @@ export async function buildWorkEmbedPages(
 
   // Page 3+: summary chunked at 750 chars
   if (summaryEnabled) {
-    const chunks = chunkText(summaryText, 750);
-    // Merge a short trailing chunk (< 250 chars) into the previous page
-    if (chunks.length >= 2 && chunks[chunks.length - 1].length < 250) {
-      const last = chunks.pop()!;
-      chunks[chunks.length - 1] += "\n" + last;
-    }
+    const chunks = chunkTextMerged(summaryText, 750);
     for (const chunk of chunks) {
       pages.push(
         ao3Embed(color)
@@ -239,6 +237,37 @@ export function buildWorkEmbedComponents(
   return [tabRow, navRow];
 }
 
+// Default tab resolver.
+function resolveWorkDefaultPage(pageCount: number, defaultTab: WorkDefaultTab): number | null {
+  if (defaultTab === "none") return null;
+  if (defaultTab === "tags") return 1;
+  if (defaultTab === "summary") return pageCount > 2 ? 2 : 0;
+  return 0;
+}
+
+// Default-tab payload for the inactivity auto-reset.
+export async function buildWorkEmbedDefaultPayload(
+  workURL: string,
+  guildId: string | null | undefined,
+  ownerId: string,
+): Promise<{ embeds: EmbedBuilder[]; components: ReturnType<typeof buildWorkEmbedComponents> | [] } | null> {
+  const bundle = await getGuildSettingsBundle(guildId);
+  const defaultTab = getWorkDefaultTab(bundle);
+  if (defaultTab === "none") return null;
+
+  const result = await buildWorkEmbedPages(workURL, guildId);
+  if ("locked" in result) return null;
+
+  const page = resolveWorkDefaultPage(result.length, defaultTab);
+  if (page === null) return null;
+
+  const workId = getWorkDetailsFromUrl({ url: workURL }).workId;
+  return {
+    embeds: [result[page]],
+    components: result.length > 1 ? buildWorkEmbedComponents(ownerId, page, result.length, workId) : [],
+  };
+}
+
 export const handleWorkEmbedButtonInteraction = async (
   interaction: ButtonInteraction,
 ) => {
@@ -280,6 +309,12 @@ export const handleWorkEmbedButtonInteraction = async (
           ? buildWorkEmbedComponents(componentOwnerId, page, result.length, workId)
           : [],
     });
+
+    if (isOwner) {
+      scheduleInactivityReset(interaction.message, () =>
+        buildWorkEmbedDefaultPayload(workURL, interaction.guildId, ownerId),
+      );
+    }
   } catch (error) {
     console.error(`Failed to refresh work embed for ${workId}`, error);
     await interaction

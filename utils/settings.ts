@@ -6,7 +6,7 @@ import {
   userFieldSettings,
   workFieldSettings,
 } from "../db/schema.ts";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../db/index.ts";
 
@@ -183,4 +183,18 @@ export async function replaceBlockedTags(guildId: string, tags: string[]): Promi
     await db.insert(blockedTags).values(tags.map((tag) => ({ guildSettingsId, tag })));
   }
   invalidateBundle(guildId);
+}
+
+// Outage alerts: guilds that opted in and picked a channel.
+export async function getGuildsWithOutageAlertsEnabled(): Promise<
+  { guildId: string; channelId: string }[]
+> {
+  const rows = await db.query.guildSettings.findMany({
+    where: and(eq(guildSettings.outageAlertsEnabled, true), isNotNull(guildSettings.outageAlertChannelId)),
+    columns: { guildId: true, outageAlertChannelId: true },
+  });
+
+  return rows
+    .filter((row): row is typeof row & { outageAlertChannelId: string } => row.outageAlertChannelId !== null)
+    .map((row) => ({ guildId: row.guildId, channelId: row.outageAlertChannelId }));
 }

@@ -13,4 +13,10 @@ if (!databaseUrl) {
 // database (as opposed to "planetscale", which doesn't support them) — true
 // for MariaDB/MySQL, and needed for the guildSettings.id -> *.guildSettingsId
 // cascade deletes defined in schema.ts to actually work as declared.
-export const db = drizzle(databaseUrl, { schema, mode: "default" });
+//
+// enableKeepAlive avoids ECONNRESET on idle pool connections.
+export const db = drizzle({
+  connection: { uri: databaseUrl, enableKeepAlive: true, keepAliveInitialDelay: 10_000 },
+  schema,
+  mode: "default",
+});
