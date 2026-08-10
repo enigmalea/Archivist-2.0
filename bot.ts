@@ -45,6 +45,7 @@ import {
   sendRedirectableEmbed,
   showTemporaryNotice,
 } from "./utils/urls.ts";
+import { ERROR_MESSAGE_LIFETIME_MS, getAo3FailureNotice } from "./utils/messageCleanup.ts";
 
 import { ao3Limiter } from "./utils/ao3Limiter.ts";
 import { authError } from "./utils/errors.ts";
@@ -265,7 +266,7 @@ async function postWorkLink(message: any, url: string) {
     .catch(async (error) => {
       abortGallery = true;
       console.error(`Failed to build work embed for ${url}`, error);
-      await waitingMsg.edit("⚠️ Something went wrong fetching that from AO3.").catch(() => {});
+      await showTemporaryNotice(waitingMsg, getAo3FailureNotice(error), ERROR_MESSAGE_LIFETIME_MS).catch(() => {});
       await galleryWaitingMsg?.delete().catch(() => {});
     });
 
@@ -370,7 +371,7 @@ async function handleMessageCreate(message: any) {
         } catch (error) {
           console.error(`Failed to build user embed for ${url}`);
           console.error(error);
-          await waitingMsg.edit("⚠️ Something went wrong fetching that from AO3.").catch(() => {});
+          await showTemporaryNotice(waitingMsg, getAo3FailureNotice(error), ERROR_MESSAGE_LIFETIME_MS).catch(() => {});
         }
         continue;
       }
@@ -406,7 +407,7 @@ async function handleMessageCreate(message: any) {
           );
         } catch (error) {
           console.error(`Failed to build series embed for ${url}`, error);
-          await waitingMsg.edit("⚠️ Something went wrong fetching that from AO3.").catch(() => {});
+          await showTemporaryNotice(waitingMsg, getAo3FailureNotice(error), ERROR_MESSAGE_LIFETIME_MS).catch(() => {});
         }
         continue;
       }
@@ -423,6 +424,8 @@ async function handleMessageCreate(message: any) {
     // not for every message in the channel.
     if (isFieldEnabled(bundle, "general", "deleteOriginalMessage")) {
       await message.delete().catch((error: unknown) => {
+        // 10008 = Unknown Message, i.e. it's already gone. Not a permissions issue.
+        if ((error as { code?: number })?.code === 10008) return;
         console.error(
           `Failed to delete original message ${message.id} in channel ${message.channelId} — likely missing "Manage Messages" permission there.`,
           error,
@@ -574,7 +577,7 @@ async function handleWorkOrChapterChoice(
       } catch (error) {
         console.error(`Failed to build chapter embed for ${url}`);
         console.error(error);
-        await waitingMsg.edit("⚠️ Something went wrong fetching that from AO3.").catch(() => {});
+        await showTemporaryNotice(waitingMsg, getAo3FailureNotice(error), ERROR_MESSAGE_LIFETIME_MS).catch(() => {});
       }
     }
 }

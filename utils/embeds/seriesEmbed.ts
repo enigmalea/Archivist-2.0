@@ -11,6 +11,7 @@ import { constructCreators } from "../creators.ts";
 import { getSeriesIdFromUrl } from "../urls.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
 import { scheduleInactivityReset } from "../inactivityReset.ts";
+import { getAo3FailureNotice, scheduleMessageDeletion } from "../messageCleanup.ts";
 import { truncateText } from "../truncate.ts";
 
 type SeriesFieldEntry = { key: string; name: string; value: string; inline: boolean };
@@ -28,11 +29,15 @@ async function computeSeriesFieldData(seriesURL: string, guildId?: string | null
     "Anonymous";
 
   const rawNotes = htmlToMarkdown(series.notes);
-  const notesText = rawNotes ? truncateText(rawNotes, getFieldMaxLength(bundle, "series", "notes")) : null;
-
   const rawDescription = htmlToMarkdown(series.description);
-  const descriptionText = rawDescription
-    ? truncateText(rawDescription, getFieldMaxLength(bundle, "series", "description"))
+
+  // No Description? Notes fill that slot instead of getting their own tab.
+  const notesSource = rawDescription ? rawNotes : null;
+  const descriptionSource = rawDescription || rawNotes;
+
+  const notesText = notesSource ? truncateText(notesSource, getFieldMaxLength(bundle, "series", "notes")) : null;
+  const descriptionText = descriptionSource
+    ? truncateText(descriptionSource, getFieldMaxLength(bundle, "series", "description"))
     : null;
 
   const descriptionLines = [
@@ -266,13 +271,15 @@ export const handleSeriesEmbedButtonInteraction = async (
     }
   } catch (error) {
     console.error(`Failed to refresh series embed for ${seriesId}`, error);
-    await interaction
+    const failureMsg = await interaction
       .editReply({
-        content: "⚠️ Something went wrong fetching that from AO3.",
+        content: getAo3FailureNotice(error),
         embeds: [],
         components: [],
       })
-      .catch(() => {});
+      .catch(() => null);
+    // Non-owners get an ephemeral copy, which doesn't linger in the channel.
+    if (isOwner) scheduleMessageDeletion(failureMsg);
   }
   return true;
 };
