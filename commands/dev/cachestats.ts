@@ -80,7 +80,6 @@ export const execute = async (interaction: ChatInputCommandInteraction) => {
       { name: "Hit Rate", value: `${hitRate}%`, inline: true },
     )
     .addFields({ name: "By Type", value: breakdown })
-    .setTimestamp()
     .setFooter({ text: "Since last restart — stats are in-memory, not persisted." });
 
   await interaction.editReply({ embeds: [embed] });

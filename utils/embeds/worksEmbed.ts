@@ -32,6 +32,7 @@ import { authError } from "../errors.ts";
 import { cachedGetWork } from "../cache.ts";
 import { chunkTextMerged } from "../chunkText.ts";
 import { constructCreators } from "../creators.ts";
+import { getAo3FailureNotice, scheduleMessageDeletion } from "../messageCleanup.ts";
 import { truncateText } from "../truncate.ts";
 
 type CacheKey = string | number;
@@ -317,13 +318,15 @@ export const handleWorkEmbedButtonInteraction = async (
     }
   } catch (error) {
     console.error(`Failed to refresh work embed for ${workId}`, error);
-    await interaction
+    const failureMsg = await interaction
       .editReply({
-        content: "⚠️ Something went wrong fetching that from AO3.",
+        content: getAo3FailureNotice(error),
         embeds: [],
         components: [],
       })
-      .catch(() => {});
+      .catch(() => null);
+    // Non-owners get an ephemeral copy, which doesn't linger in the channel.
+    if (isOwner) scheduleMessageDeletion(failureMsg);
   }
   return true;
 };

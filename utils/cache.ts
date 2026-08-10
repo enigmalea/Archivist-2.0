@@ -1,4 +1,5 @@
 import { getSeries, getUser, getWork, getWorkContent, getWorkWithChapters, setFetcher } from "@fujocoded/ao3.js";
+import { recordAo3Request, recordCacheHit, recordError } from "./cacheStats.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 3 * HOUR_MS;
@@ -16,18 +17,26 @@ type UserData = Awaited<ReturnType<typeof getUser>>;
 type WorkContentData = Awaited<ReturnType<typeof getWorkContent>>;
 type WorkWithChaptersData = Awaited<ReturnType<typeof getWorkWithChapters>>;
 
-// How long a failed fetch is remembered before we let a new attempt through.
-// This doesn't retry anything — it just stops repeated posts of the same
-// (currently-failing) link from each triggering a fresh AO3 request, which
-// only makes an active rate-limit/Cloudflare block worse.
-const FAILURE_TTL_MS = 30 * 1000;
+// Cooldown before a failed link is retried, so repeated posts of a broken
+// link don't each trigger a fresh AO3 request.
+const FAILURE_TTL_MS = 15 * 1000;
+
+// Thrown when getOrSet is still in the cooldown above.
+export class RecentFailureError extends Error {
+  constructor() {
+    super("AO3 request recently failed for this item; try again in a bit.");
+    this.name = "RecentFailureError";
+  }
+}
 
 export class Cache<T> {
   private readonly store = new Map<CacheKey, CacheEntry<T>>();
   private readonly inFlight = new Map<CacheKey, Promise<T>>();
   private readonly failures = new Map<CacheKey, number>();
 
-  constructor(private readonly ttlMs: number = HOUR_MS) {}
+  // statsName feeds /cachestats (utils/cacheStats.ts). Left unset for
+  // internal caches like the raw-HTML fetch cache.
+  constructor(private readonly ttlMs: number = HOUR_MS, private readonly statsName?: string) {}
 
   set(key: CacheKey, value: T): void {
     this.store.set(key, {
@@ -50,15 +59,20 @@ export class Cache<T> {
 
   async getOrSet(key: CacheKey, loader: () => Promise<T>): Promise<T> {
     const cached = this.get(key);
-    if (cached !== null) return cached;
+    if (cached !== null) {
+      if (this.statsName) recordCacheHit(this.statsName);
+      return cached;
+    }
 
     const failedUntil = this.failures.get(key);
     if (failedUntil && Date.now() < failedUntil) {
-      throw new Error("AO3 request recently failed for this item; try again in a bit.");
+      throw new RecentFailureError();
     }
 
     const pending = this.inFlight.get(key);
     if (pending) return pending;
+
+    if (this.statsName) recordAo3Request(this.statsName);
 
     const promise = (async () => {
       try {
@@ -68,6 +82,7 @@ export class Cache<T> {
         return value;
       } catch (error) {
         this.failures.set(key, Date.now() + FAILURE_TTL_MS);
+        if (this.statsName) recordError(this.statsName);
         throw error;
       } finally {
         this.inFlight.delete(key);
@@ -85,12 +100,24 @@ export class Cache<T> {
   }
 }
 
-export const workCache = new Cache<WorkData>(HOUR_MS);
-export const seriesCache = new Cache<SeriesData>(HOUR_MS);
-export const workChapterCache = new Cache<WorkData>(HOUR_MS);
-export const workContentCache = new Cache<WorkContentData>(HOUR_MS);
+export const workCache = new Cache<WorkData>(HOUR_MS, "work");
+export const seriesCache = new Cache<SeriesData>(HOUR_MS, "series");
+export const workChapterCache = new Cache<WorkData>(HOUR_MS, "chapter");
+export const workContentCache = new Cache<WorkContentData>(HOUR_MS, "content");
 export const workWithChaptersCache = new Cache<WorkWithChaptersData>(HOUR_MS);
-export const userCache = new Cache<UserData>(DAY_MS);
+export const userCache = new Cache<UserData>(DAY_MS, "user");
+
+// Retries a failed request with growing backoff (1.5s, then 3s).
+async function withRetry<T>(loader: () => Promise<T>, attempts = 3, baseDelayMs = 1500): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await loader();
+    } catch (error) {
+      if (attempt >= attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
+    }
+  }
+}
 
 export async function cachedGetWork(workId: CacheKey) {
   return workCache.getOrSet(workId, () => getWork({ workId }));
@@ -136,12 +163,40 @@ export async function cachedGetWorkContent(workId: CacheKey, chapterId?: number)
 // below so images.ts's gallery scraping doesn't re-fetch the same page.
 const rawHtmlCache = new Cache<string>(HOUR_MS);
 
+// Browser-like headers reduce Cloudflare bot-detection challenges.
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+};
+
+// Caps how long a single fetch attempt can hang, so one slow request
+// doesn't block ao3Limiter's whole queue.
+const FETCH_TIMEOUT_MS = 15 * 1000;
+
 export async function cachedFetchText(url: string, cookie: string = ""): Promise<string> {
   const key = `${url}::${cookie}`;
-  return rawHtmlCache.getOrSet(key, async () => {
-    const response = await fetch(url, cookie ? { headers: { Cookie: cookie } } : undefined);
-    return response.text();
-  });
+  return rawHtmlCache.getOrSet(key, () =>
+    // Retry happens here, not around a caller, so it's a real second
+    // network attempt rather than hitting this cache's own cooldown.
+    withRetry(async () => {
+      const headers = cookie ? { ...BROWSER_HEADERS, Cookie: cookie } : BROWSER_HEADERS;
+      let response: Response;
+      try {
+        response = await fetch(url, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+      } catch (error) {
+        if (error instanceof Error && error.name === "TimeoutError") {
+          throw new Error(`AO3 request timed out after ${FETCH_TIMEOUT_MS / 1000}s for ${url}`);
+        }
+        throw error;
+      }
+      if (!response.ok) {
+        throw new Error(`AO3 returned HTTP ${response.status} for ${url}`);
+      }
+      return response.text();
+    }),
+  );
 }
 
 setFetcher(async (input, init) => {

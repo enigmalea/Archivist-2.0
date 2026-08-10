@@ -7,6 +7,7 @@ import { cachedGetUser } from "../cache.ts";
 import { chunkText } from "../chunkText.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
 import { scheduleInactivityReset } from "../inactivityReset.ts";
+import { getAo3FailureNotice, scheduleMessageDeletion } from "../messageCleanup.ts";
 import { truncateText } from "../truncate.ts";
 
 const BIO_PAGE_LENGTH = 750;
@@ -280,13 +281,15 @@ export const handleUserEmbedButtonInteraction = async (
     }
   } catch (error) {
     console.error(`Failed to refresh user embed for ${username}`, error);
-    await interaction
+    const failureMsg = await interaction
       .editReply({
-        content: "⚠️ Something went wrong fetching that from AO3.",
+        content: getAo3FailureNotice(error),
         embeds: [],
         components: [],
       })
-      .catch(() => {});
+      .catch(() => null);
+    // Non-owners get an ephemeral copy, which doesn't linger in the channel.
+    if (isOwner) scheduleMessageDeletion(failureMsg);
   }
   return true;
 };

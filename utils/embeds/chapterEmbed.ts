@@ -23,6 +23,7 @@ import type { ChapterDefaultTab } from "../embedFields.ts";
 import { extractImagesFromHtml, optimizeImageUrl } from "../images.ts";
 import { chunkTextMerged } from "../chunkText.ts";
 import { scheduleInactivityReset } from "../inactivityReset.ts";
+import { getAo3FailureNotice, scheduleMessageDeletion } from "../messageCleanup.ts";
 import { stripIndents } from "common-tags";
 import { truncateText } from "../truncate.ts";
 
@@ -381,13 +382,15 @@ export const handleChapterEmbedButtonInteraction = async (
     }
   } catch (error) {
     console.error(`Failed to refresh chapter embed for ${workId}/${chapterId}`, error);
-    await interaction
+    const failureMsg = await interaction
       .editReply({
-        content: "⚠️ Something went wrong fetching that from AO3.",
+        content: getAo3FailureNotice(error),
         embeds: [],
         components: [],
       })
-      .catch(() => {});
+      .catch(() => null);
+    // Non-owners get an ephemeral copy, which doesn't linger in the channel.
+    if (isOwner) scheduleMessageDeletion(failureMsg);
   }
   return true;
 };

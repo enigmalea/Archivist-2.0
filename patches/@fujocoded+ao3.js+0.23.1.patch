@@ -30,7 +30,7 @@ index 8b00568..c875c43 100644
  
  //#endregion
 diff --git a/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js b/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js
-index b7739da..06e36c9 100644
+index b7739da..57d9a1b 100644
 --- a/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js
 +++ b/node_modules/@fujocoded/ao3.js/dist/src/series/getters.js
 @@ -1,6 +1,7 @@
@@ -41,7 +41,39 @@ index b7739da..06e36c9 100644
  import { load } from "cheerio/slim";
  
  //#region src/series/getters.ts
-@@ -73,6 +74,10 @@ const getSeriesWorks = ($seriesPage) => {
+@@ -39,14 +40,26 @@ const getSeriesAuthors = ($seriesPage) => {
+ 	});
+ 	return authors;
+ };
++// Drops the <blockquote class="userstuff"> wrapper (AO3 box styling, not a
++// quote) so it doesn't render as a markdown "> " blockquote.
++function getDdUserstuffHtml(dd) {
++	const blockquote = dd.find("blockquote.userstuff");
++	const html = blockquote.length !== 0 ? blockquote.html() : dd.html();
++	return html ? html.trim() : null;
++}
+ const getSeriesDescription = ($seriesPage) => {
+-	const description = $seriesPage("dl.series blockquote.userstuff").html();
+-	return description ? description.trim() : null;
++	// Scoped to the dd after "Description:" — a generic blockquote selector
++	// could match Notes' blockquote instead when there's no Description.
++	const descriptionDt = $seriesPage("dl.series > dt").filter((i, el) => $seriesPage(el).text().trim() === "Description:").first();
++	if (descriptionDt.length === 0) return null;
++	const dd = descriptionDt.next("dd");
++	return dd.length !== 0 ? getDdUserstuffHtml(dd) : null;
+ };
+ const getSeriesNotes = ($seriesPage) => {
+-	const notes = $seriesPage("dl.series dd:nth-of-type(5)");
+-	if (notes.prevAll().first().text().trim() === "Notes:") return notes.html().trim();
+-	else return null;
++	const notesDt = $seriesPage("dl.series > dt").filter((i, el) => $seriesPage(el).text().trim() === "Notes:").first();
++	if (notesDt.length === 0) return null;
++	const dd = notesDt.next("dd");
++	return dd.length !== 0 ? getDdUserstuffHtml(dd) : null;
+ };
+ const getSeriesPublishDate = ($seriesPage) => {
+ 	return $seriesPage("dl.series > dd:nth-of-type(2)").text().trim();
+@@ -73,6 +86,10 @@ const getSeriesWorks = ($seriesPage) => {
  	});
  	return works;
  };
@@ -52,7 +84,7 @@ index b7739da..06e36c9 100644
  const getSeriesWork = (workHtml) => {
  	const work = load(workHtml);
  	const $work = work, $$work = work;
-@@ -88,6 +93,7 @@ const getSeriesWork = (workHtml) => {
+@@ -88,6 +105,7 @@ const getSeriesWork = (workHtml) => {
  		title: getSeriesWorkTitle($work),
  		updatedAt: getSeriesWorkUpdateDate($work),
  		summary: getSeriesWorkSummary($work),
