@@ -1,6 +1,9 @@
 import { ShardingManager } from "discord.js";
 import dotenv from "dotenv";
+import fs from "node:fs";
 import { getBotCredentials } from "./utils/botEnv.ts";
+import path from "node:path";
+import readline from "node:readline";
 
 dotenv.config({ quiet: true });
 
@@ -29,3 +32,33 @@ manager.on("shardCreate", (shard) => {
 });
 
 manager.spawn();
+
+// Console command listener — lets PebbleHost's "Send command" scheduler
+// task trigger maintenance actions without needing a shell.
+const rl = readline.createInterface({ input: process.stdin });
+
+rl.on("line", (line) => {
+  const command = line.trim().toLowerCase();
+
+  if (command === "clearlogs") {
+    clearLogs();
+  }
+});
+
+function clearLogs() {
+  const logsDir = path.join(process.cwd(), "logs");
+
+  try {
+    if (fs.existsSync(logsDir)) {
+      // Clear contents, not the folder itself — PebbleHost's daemon expects
+      // the logs/ directory to already exist and won't necessarily recreate
+      // it if it's rm -rf'd outright.
+      for (const entry of fs.readdirSync(logsDir)) {
+        fs.rmSync(path.join(logsDir, entry), { recursive: true, force: true });
+      }
+      console.log("Cleared logs/ folder");
+    }
+  } catch (err) {
+    console.error("Failed to clear logs:", err);
+  }
+}
