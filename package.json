@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "test": "npm run build && npm run start",
     "register": "node dist/deploy-commands.js",
+		"migrate:v1": "node dist/scripts/migrate-from-v1.js",
     "postinstall": "patch-package"
   },
   "dependencies": {
