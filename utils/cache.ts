@@ -1,8 +1,10 @@
 import { getSeries, getUser, getWork, getWorkContent, getWorkWithChapters, setFetcher } from "@fujocoded/ao3.js";
 import { recordAo3Request, recordCacheHit, recordError } from "./cacheStats.ts";
 
+import { ao3Limiter } from "./ao3Limiter.ts";
+
 const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 3 * HOUR_MS;
+const THREE_HOURS_MS = 3 * HOUR_MS;
 
 type CacheKey = string | number;
 
@@ -102,10 +104,11 @@ export class Cache<T> {
 
 export const workCache = new Cache<WorkData>(HOUR_MS, "work");
 export const seriesCache = new Cache<SeriesData>(HOUR_MS, "series");
+export const fullSeriesCache = new Cache<SeriesData>(HOUR_MS, "series");
 export const workChapterCache = new Cache<WorkData>(HOUR_MS, "chapter");
 export const workContentCache = new Cache<WorkContentData>(HOUR_MS, "content");
 export const workWithChaptersCache = new Cache<WorkWithChaptersData>(HOUR_MS);
-export const userCache = new Cache<UserData>(DAY_MS, "user");
+export const userCache = new Cache<UserData>(THREE_HOURS_MS, "user");
 
 // Retries a failed request with growing backoff (1.5s, then 3s).
 async function withRetry<T>(loader: () => Promise<T>, attempts = 3, baseDelayMs = 1500): Promise<T> {
@@ -123,6 +126,8 @@ export async function cachedGetWork(workId: CacheKey) {
   return workCache.getOrSet(workId, () => getWork({ workId }));
 }
 
+// First page of a series only (up to 20 works). Fine for embeds, which just
+// need the metadata. Use cachedGetFullSeries when you need every work.
 export async function cachedGetSeries(seriesId: CacheKey) {
   return seriesCache.getOrSet(seriesId, async () => {
     const series = await getSeries({ seriesId });
@@ -132,6 +137,26 @@ export async function cachedGetSeries(seriesId: CacheKey) {
     // throwing, which would otherwise get cached as good data for an hour.
     if (!series.name) throw new Error("Series name is empty — AO3 likely returned an incomplete page");
     return series;
+  });
+}
+
+// Every work in a series, fetched page by page (AO3 shows 20 per page).
+// Each page request takes its own ao3Limiter slot so requests stay spaced
+// out. Callers must NOT wrap this in ao3Limiter.schedule themselves: with
+// maxConcurrent: 1, the nested jobs would wait on the outer one forever.
+export async function cachedGetFullSeries(seriesId: CacheKey) {
+  return fullSeriesCache.getOrSet(seriesId, async () => {
+    const first = await ao3Limiter.schedule(() => getSeries({ seriesId, page: 1 }));
+    if (!first.name) throw new Error("Series name is empty — AO3 likely returned an incomplete page");
+
+    const works = [...first.works];
+    for (let page = 2; page <= first.pages.total; page++) {
+      const next = await ao3Limiter.schedule(() => getSeries({ seriesId, page }));
+      if (!next.works.length) break; // safety net against a bad/empty page
+      works.push(...next.works);
+    }
+
+    return { ...first, works, pages: { total: first.pages.total, current: 1 } };
   });
 }
 
@@ -173,7 +198,7 @@ const BROWSER_HEADERS: Record<string, string> = {
 
 // Caps how long a single fetch attempt can hang, so one slow request
 // doesn't block ao3Limiter's whole queue.
-const FETCH_TIMEOUT_MS = 15 * 1000;
+const FETCH_TIMEOUT_MS = 30 * 1000;
 
 export async function cachedFetchText(url: string, cookie: string = ""): Promise<string> {
   const key = `${url}::${cookie}`;

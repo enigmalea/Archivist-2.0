@@ -3,12 +3,7 @@ import type { ButtonInteraction, EmbedBuilder } from "discord.js";
 import { cachedGetWorkChapter, cachedGetWorkContent } from "../cache.ts";
 import { chapterDisplay, formatCompletionStatus, publishedDate, updatedAt } from "../statuses.ts";
 import { embedColor, ratingIcon } from "../ratings.ts";
-import { getWorkDetailsFromUrl, getWorkUrl } from "@fujocoded/ao3.js/urls";
-
-import { ao3Embed } from "../baseEmbed.ts";
-import { authError } from "../errors.ts";
-import { constructCreators } from "../creators.ts";
-import { countChapterWords } from "../words.ts";
+import { extractImagesFromHtml, optimizeImageUrl } from "../images.ts";
 import {
   formatCharacters,
   formatFandoms,
@@ -16,14 +11,19 @@ import {
   formatTags,
   formatWarnings,
 } from "../tags.ts";
+import { getAo3FailureNotice, scheduleMessageDeletion } from "../messageCleanup.ts";
+import { getChapterDefaultTab, getFieldMaxLength, getGuildSettingsBundle, isFieldEnabled } from "../embedFields.ts";
+import { getWorkDetailsFromUrl, getWorkUrl } from "@fujocoded/ao3.js/urls";
+
+import type { ChapterDefaultTab } from "../embedFields.ts";
+import { ao3Embed } from "../baseEmbed.ts";
+import { authError } from "../errors.ts";
+import { chunkTextMerged } from "../chunkText.ts";
+import { constructCreators } from "../creators.ts";
+import { countChapterWords } from "../words.ts";
 import { formatWorkSeries } from "../../utils/details.ts";
 import { htmlToMarkdown } from "../htmlToMarkdown.ts";
-import { getChapterDefaultTab, getFieldMaxLength, getGuildSettingsBundle, isFieldEnabled } from "../embedFields.ts";
-import type { ChapterDefaultTab } from "../embedFields.ts";
-import { extractImagesFromHtml, optimizeImageUrl } from "../images.ts";
-import { chunkTextMerged } from "../chunkText.ts";
 import { scheduleInactivityReset } from "../inactivityReset.ts";
-import { getAo3FailureNotice, scheduleMessageDeletion } from "../messageCleanup.ts";
 import { stripIndents } from "common-tags";
 import { truncateText } from "../truncate.ts";
 
@@ -79,10 +79,12 @@ async function computeChapterFieldData(workURL: string, guildId?: string | null)
 
   // TODO: Add collections to embed.
   const description = stripIndents`
+
     **${work.title}**
     by ${creators}
     ${series}
-    [Read from the beginning](${readFromBeginningUrl})
+
+    :point_right: [**Read from the beginning**](${readFromBeginningUrl}) :point_left:
   `;
 
   const statsFields: ChapterFieldEntry[] = [

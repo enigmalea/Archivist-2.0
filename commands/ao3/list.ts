@@ -10,13 +10,12 @@ import {
   StringSelectMenuInteraction,
   StringSelectMenuOptionBuilder,
 } from "discord.js";
+import { getGuildSettingsBundle, getListResetToFirstPage } from "../../utils/embedFields.ts";
 
 import { ao3Embed } from "../../utils/baseEmbed.ts";
-import { ao3Limiter } from "../../utils/ao3Limiter.ts";
 import { ao3SeriesError } from "../../utils/errors.ts";
-import { cachedGetSeries } from "../../utils/cache.ts";
+import { cachedGetFullSeries } from "../../utils/cache.ts";
 import { constructCreators } from "../../utils/creators.ts";
-import { getGuildSettingsBundle, getListResetToFirstPage } from "../../utils/embedFields.ts";
 import { getSeriesIdFromUrl } from "../../utils/urls.ts";
 import { getSeriesUrl } from "@fujocoded/ao3.js/urls";
 import { ratingIcon } from "../../utils/ratings.ts";
@@ -26,7 +25,7 @@ const MAX_DESCRIPTION = 4096;
 const MAX_WORKS_PER_PAGE = 10;
 const MAX_SELECT_OPTIONS = 25;
 
-type SeriesData = Awaited<ReturnType<typeof cachedGetSeries>>;
+type SeriesData = Awaited<ReturnType<typeof cachedGetFullSeries>>;
 
 type ListSession = {
   series: SeriesData;
@@ -50,7 +49,7 @@ async function getListSession(seriesId: string): Promise<ListSession> {
   if (cached) return cached;
 
   // Rate-limited fetch — long series can mean several AO3 requests.
-  const series = await ao3Limiter.schedule(() => cachedGetSeries(seriesId));
+  const series = await cachedGetFullSeries(seriesId);
   const authors = constructCreators(series.authors, series.authors?.[0]?.anonymous);
   const seriesURL = getSeriesUrl({ seriesId });
   const pageBoundaries = computePageBoundaries(series, authors);
