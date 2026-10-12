@@ -60,18 +60,35 @@ interface Incident {
   incident_updates: IncidentUpdate[];
 }
 
-async function fetchAo3Incidents(): Promise<Incident[] | null> {
-  try {
-    const response = await fetch(INCIDENTS_API_URL);
-    if (!response.ok) return null;
-    const data = (await response.json()) as { incidents: Incident[] };
-    return data.incidents.filter((incident) =>
-      incident.components.some((component) => component.name === AO3_COMPONENT_NAME),
-    );
-  } catch (error) {
-    console.error("Failed to fetch AO3 incidents from otwstatus.org", error);
-    return null;
+let consecutiveFailures = 0;
+
+// Fetches JSON with a timeout and one retry. Only the first failure in a streak is logged.
+async function fetchJson<T>(url: string): Promise<T | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      consecutiveFailures = 0;
+      return (await response.json()) as T;
+    } catch (error) {
+      if (attempt === 1) {
+        if (consecutiveFailures++ === 0) {
+          console.error(`otwstatus.org fetch failed (${url})`, (error as any)?.cause ?? error);
+        }
+        return null;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
   }
+  return null;
+}
+
+async function fetchAo3Incidents(): Promise<Incident[] | null> {
+  const data = await fetchJson<{ incidents: Incident[] }>(INCIDENTS_API_URL);
+  if (!data) return null;
+  return data.incidents.filter((incident) =>
+    incident.components.some((component) => component.name === AO3_COMPONENT_NAME),
+  );
 }
 
 function buildIncidentUpdateEmbed(incident: Incident, update: IncidentUpdate): EmbedBuilder {
@@ -86,15 +103,9 @@ function buildIncidentUpdateEmbed(incident: Incident, update: IncidentUpdate): E
 }
 
 async function fetchAo3ComponentStatus(): Promise<string | null> {
-  try {
-    const response = await fetch(COMPONENTS_API_URL);
-    if (!response.ok) return null;
-    const data = (await response.json()) as { components: { name: string; status: string }[] };
-    return data.components.find((component) => component.name === AO3_COMPONENT_NAME)?.status ?? null;
-  } catch (error) {
-    console.error("Failed to fetch AO3 component status from otwstatus.org", error);
-    return null;
-  }
+  const data = await fetchJson<{ components: { name: string; status: string }[] }>(COMPONENTS_API_URL);
+  if (!data) return null;
+  return data.components.find((component) => component.name === AO3_COMPONENT_NAME)?.status ?? null;
 }
 
 // Fallback notice for a status change with no published incident.
