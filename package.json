@@ -9,18 +9,21 @@
     "start": "node dist/index.js",
     "test": "npm run build && npm run start",
     "register": "node dist/deploy-commands.js",
-		"migrate:v1": "node dist/scripts/migrate-from-v1.js",
+    "migrate:v1": "node dist/scripts/migrate-from-v1.js",
     "postinstall": "patch-package"
   },
   "dependencies": {
     "@fujocoded/ao3.js": "^0.24.0",
+    "@top-gg/sdk": "^4.0.0",
     "bottleneck": "^2.19.5",
     "common-tags": "^1.8.2",
     "dayjs": "^1.11.23",
     "discord.js": "^14.27.0",
+    "discordbotlist": "^1.1.1",
     "dotenv": "^18.0.7",
     "drizzle-orm": "^0.45.4",
     "mysql2": "^3.24.5",
+    "node-cron": "^4.6.0",
     "turndown": "^7.2.4"
   },
   "devDependencies": {
@@ -29,8 +32,8 @@
     "@types/turndown": "^5.0.6",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.12.0",
-    "tsx": "^4.23.15",
     "patch-package": "^8.0.1",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
 }
