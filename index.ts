@@ -4,6 +4,8 @@ import fs from "node:fs";
 import { getBotCredentials } from "./utils/botEnv.ts";
 import path from "node:path";
 import readline from "node:readline";
+import cron from "node-cron";
+import { postStats } from "./utils/stats.ts";
 
 dotenv.config({ quiet: true });
 
@@ -31,7 +33,22 @@ manager.on("shardCreate", (shard) => {
   });
 });
 
-manager.spawn();
+manager
+  .spawn()
+  .then(() => {
+    // Only the production bot posts on a schedule. The test bot can still
+    // push on demand via the /poststats dev command.
+    if (env !== "prod") return;
+
+    const run = () =>
+      postStats(manager).catch((err) =>
+        console.error("[stats] failed to post server counts:", err),
+      );
+
+    run(); // once at startup, then every 30 minutes
+    cron.schedule("*/30 * * * *", run);
+  })
+  .catch((error) => console.error("Failed to spawn shards:", error));
 
 // Console command listener — lets PebbleHost's "Send command" scheduler
 // task trigger maintenance actions without needing a shell.
